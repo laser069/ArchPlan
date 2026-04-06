@@ -1,0 +1,11 @@
+[
+  {
+    "input": "Design URL Shortener",
+    "output": {
+      "components": ["API Gateway", "Database", "Cache"],
+      "architecture": "Microservices",
+      "scaling": "Use sharding and caching",
+      "diagram": "graph TD; A-->B;"
+    }
+  }
+]
