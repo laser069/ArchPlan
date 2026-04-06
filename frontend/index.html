@@ -15,38 +15,55 @@
   </script>
 </head>
 
-<body class="bg-gray-100 p-6">
+<body class="bg-gray-50 text-gray-800">
 
-  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow">
+  <div class="max-w-6xl mx-auto p-6">
 
-    <h1 class="text-2xl font-bold mb-4">ArchPlan 🚀</h1>
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-semibold">ArchPlan</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        AI-powered system design generator
+      </p>
+    </div>
 
-    <!-- Input -->
-    <textarea id="query"
-      class="w-full p-3 border rounded mb-3"
-      rows="3"
-      placeholder="Design Netflix..."></textarea>
+    <!-- Input Card -->
+    <div class="bg-white rounded-xl shadow-sm border p-5 mb-6">
+      <textarea id="query"
+        class="w-full p-3 border rounded-md mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        rows="3"
+        placeholder="Design a food delivery platform..."></textarea>
 
-    <button onclick="generate()"
-      class="bg-blue-600 text-white px-4 py-2 rounded">
-      Generate
-    </button>
+      <button onclick="generate()"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md text-sm">
+        Generate
+      </button>
+    </div>
 
-    <!-- Output -->
-    <div class="mt-6">
+    <!-- Content Grid -->
+    <div class="grid md:grid-cols-2 gap-6">
 
-      <h2 class="font-semibold">Components</h2>
-      <ul id="components" class="list-disc ml-6 mb-4"></ul>
+      <!-- Components -->
+      <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h2 class="font-semibold text-lg mb-3">Components</h2>
+        <ul id="components" class="space-y-2 text-sm"></ul>
+      </div>
 
-      <h2 class="font-semibold">Architecture</h2>
-      <p id="architecture" class="mb-4"></p>
+      <!-- Architecture + Scaling -->
+      <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h2 class="font-semibold text-lg mb-2">Architecture</h2>
+        <p id="architecture" class="text-sm text-gray-600 mb-4"></p>
 
-      <h2 class="font-semibold">Scaling</h2>
-      <p id="scaling" class="mb-4"></p>
+        <h2 class="font-semibold text-lg mb-2">Scaling</h2>
+        <p id="scaling" class="text-sm text-gray-600"></p>
+      </div>
 
-      <h2 class="font-semibold">Diagram</h2>
-      <div id="diagram" class="bg-gray-50 p-4 rounded"></div>
+    </div>
 
+    <!-- Diagram -->
+    <div class="bg-white rounded-xl shadow-sm border p-5 mt-6">
+      <h2 class="font-semibold text-lg mb-3">System Diagram</h2>
+      <div id="diagram" class="overflow-x-auto"></div>
     </div>
 
   </div>

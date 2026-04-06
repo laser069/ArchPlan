@@ -1,34 +1,63 @@
 async function generate() {
   const query = document.getElementById("query").value;
 
-  const res = await fetch("http://localhost:8000/generate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ query })
-  });
+  if (!query) return alert("Enter a query");
 
-  const data = await res.json();
+  const button = document.querySelector("button");
+  button.disabled = true;
+  button.innerText = "Generating...";
 
-  // 🔹 Components
-  const compList = document.getElementById("components");
-  compList.innerHTML = "";
+  try {
+    const res = await fetch("http://localhost:8000/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ query })
+    });
 
-  data.components.forEach(c => {
-    const li = document.createElement("li");
-    li.textContent = `${c.name} (${c.type})`;
-    compList.appendChild(li);
-  });
+    const data = await res.json();
 
-  // 🔹 Text
-  document.getElementById("architecture").innerText = data.architecture;
-  document.getElementById("scaling").innerText = data.scaling;
+    // 🔹 Components
+    const compList = document.getElementById("components");
+    compList.innerHTML = "";
 
-  // 🔥 Diagram (Mermaid)
-  const diagramDiv = document.getElementById("diagram");
-  diagramDiv.innerHTML = `<div class="mermaid">${data.diagram}</div>`;
+data.components.forEach(c => {
+  const li = document.createElement("li");
 
-  // re-render
-  mermaid.init(undefined, diagramDiv);
+  li.className = "flex justify-between bg-gray-50 px-3 py-2 rounded";
+
+  li.innerHTML = `
+    <span>${c.name}</span>
+    <span class="text-xs text-gray-500">${c.type}</span>
+  `;
+
+  compList.appendChild(li);
+});
+
+    // 🔹 Text
+    document.getElementById("architecture").innerText = data.architecture;
+    document.getElementById("scaling").innerText = data.scaling;
+
+    // 🔥 Diagram (FIXED WAY)
+    const diagramDiv = document.getElementById("diagram");
+    diagramDiv.innerHTML = "";
+
+    const id = "mermaid-" + Date.now();
+
+    try {
+      const { svg } = await mermaid.render(id, data.diagram);
+      diagramDiv.innerHTML = svg;
+    } catch (err) {
+      console.error(err);
+      diagramDiv.innerText = "Diagram failed to render";
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Something went wrong");
+  }
+
+  button.disabled = false;
+  button.innerText = "Generate";
 }
