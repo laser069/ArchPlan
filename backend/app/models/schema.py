@@ -1,5 +1,16 @@
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Literal
+
+class Constraints(BaseModel):
+    budget_usd_month: int | None = None
+    team_size: int | None = None
+    peak_rps: int | None = None
+    cloud_provider: str = "AWS"
+    region: str | None = None
+    stack: List[str] = Field(default_factory=list)
+    avoid: List[str] = Field(default_factory=list)
+    compliance: List[str] = Field(default_factory=list)
+    scale_level: Literal["startup", "growth", "enterprise"] = "startup"
 
 class Component(BaseModel):
     name: str
@@ -7,9 +18,11 @@ class Component(BaseModel):
 
 class GenerateRequest(BaseModel):
     query: str
+    # constraints is now fully optional — extractor fills it from query text
+    constraints: Constraints | None = None
 
 class GenerateResponse(BaseModel):
-    components: List[Component]  
+    components: List[Component]
     architecture: str
     scaling: str
     diagram: str
