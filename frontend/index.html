@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ArchPlan</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Mermaid -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+  <script>
+    mermaid.initialize({ startOnLoad: false });
+  </script>
+</head>
+
+<body class="bg-gray-100 p-6">
+
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded-xl shadow">
+
+    <h1 class="text-2xl font-bold mb-4">ArchPlan 🚀</h1>
+
+    <!-- Input -->
+    <textarea id="query"
+      class="w-full p-3 border rounded mb-3"
+      rows="3"
+      placeholder="Design Netflix..."></textarea>
+
+    <button onclick="generate()"
+      class="bg-blue-600 text-white px-4 py-2 rounded">
+      Generate
+    </button>
+
+    <!-- Output -->
+    <div class="mt-6">
+
+      <h2 class="font-semibold">Components</h2>
+      <ul id="components" class="list-disc ml-6 mb-4"></ul>
+
+      <h2 class="font-semibold">Architecture</h2>
+      <p id="architecture" class="mb-4"></p>
+
+      <h2 class="font-semibold">Scaling</h2>
+      <p id="scaling" class="mb-4"></p>
+
+      <h2 class="font-semibold">Diagram</h2>
+      <div id="diagram" class="bg-gray-50 p-4 rounded"></div>
+
+    </div>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
