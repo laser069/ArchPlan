@@ -1,0 +1,18 @@
+Centralized Logging System:
+
+Components:
+- Log Collector
+- Kafka Queue
+- Log Processor
+- Elasticsearch
+- Kibana UI
+- S3 Storage
+
+Architecture:
+Applications push logs to Kafka. Log processors consume and index logs into Elasticsearch. Kibana provides visualization.
+
+Scaling:
+Kafka partitions logs. Elasticsearch clusters scale horizontally. S3 stores archived logs.
+
+Constraints:
+- High throughput

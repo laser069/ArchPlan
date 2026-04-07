@@ -1,0 +1,16 @@
+CDN-based System:
+
+Components:
+- CDN
+- Origin Server
+- Cache Layer
+- S3 Storage
+
+Architecture:
+Static content is served from CDN edge nodes. Cache reduces load on origin servers.
+
+Scaling:
+Global edge distribution handles traffic.
+
+Constraints:
+- Global users
