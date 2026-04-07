@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 class Constraints(BaseModel):
     budget_usd_month: int | None = None
@@ -18,8 +18,9 @@ class Component(BaseModel):
 
 class GenerateRequest(BaseModel):
     query: str
-    # constraints is now fully optional — extractor fills it from query text
     constraints: Constraints | None = None
+    # This is the "Context Bridge" for the refinement loop
+    existing_diagram: Optional[str] = None 
 
 class GenerateResponse(BaseModel):
     components: List[Component]
