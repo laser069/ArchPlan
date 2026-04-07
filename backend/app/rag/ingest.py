@@ -1,9 +1,10 @@
 import os
 from sentence_transformers import SentenceTransformer
-from rag.chroma_client import collection
+from .chroma_client import collection
 
 # 🔥 CONFIG
-DOCS_PATH = "../docs"   # adjust if needed
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DOCS_PATH = os.path.join(BASE_DIR, "docs")
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 100
 
