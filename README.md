@@ -1,16 +1,16 @@
 # 🏗️ ArchPlan: AI-Powered System Architect
 
-ArchPlan is an intelligent system design generator that uses **Retrieval-Augmented Generation (RAG)** to provide production-grade architecture blueprints. Unlike generic LLMs, ArchPlan consults internal knowledge bases to ensure designs are cost-effective, compliant, and technically sound.
+ArchPlan is an **iterative** system design generator that utilizes **Retrieval-Augmented Generation (RAG)** and a **Deterministic Extraction Layer** to provide production-grade architecture blueprints. Unlike generic LLMs, ArchPlan consults internal knowledge bases and maintains session state to allow for continuous design refinement.
 
 ---
 
 ## 🌟 Key Features
 
-* **Constraint Extraction:** Automatically identifies budget, scale, region, and tech stack from natural language queries.
-* **RAG Enrichment:** Queries a local **ChromaDB** vector store to inject "gold-standard" architecture patterns into the LLM prompt.
-* **Ollama Integration:** Powered by **Qwen 2.5 Coder** for high-precision technical reasoning.
-* **Visual Diagrams:** Generates live, interactive system diagrams using **Mermaid.js**.
-* **Budget-Aware:** Adjusts component selection based on specified monthly USD limits.
+* **Multi-Stage Extraction:** Uses a zero-temperature "Constraint Engine" to pull technical requirements (Budget, RPS, Region, Stack) into a structured JSON schema.
+* **Iterative Refinement:** Supports a "Refine Design" loop where the architect modifies existing diagrams based on conversational feedback.
+* **RAG Enrichment:** Queries a local **ChromaDB** vector store to inject "gold-standard" patterns into the LLM prompt.
+* **Visual Logic:** Generates live, interactive system diagrams using **Mermaid.js** with unique render-ID management.
+* **GPU Optimized:** Tuned for high-precision technical reasoning using **Qwen 2.5 Coder** on consumer-grade hardware (e.g., RTX 2050).
 
 ---
 
@@ -18,11 +18,11 @@ ArchPlan is an intelligent system design generator that uses **Retrieval-Augment
 
 | Layer | Technology |
 | :--- | :--- |
-| **Frontend** | HTML5, Tailwind CSS, JavaScript (ES6+) |
+| **Frontend** | HTML5, Tailwind CSS, JavaScript (ES6+), Mermaid.js |
 | **Backend** | FastAPI (Python 3.10+) |
 | **LLM Engine** | Ollama (Model: `qwen2.5-coder:7b`) |
 | **Vector DB** | ChromaDB (for RAG) |
-| **Visualization** | Mermaid.js |
+| **Parsing** | Deterministic Regex & JSON Sanitizers |
 
 ---
 
@@ -33,7 +33,6 @@ ArchPlan is an intelligent system design generator that uses **Retrieval-Augment
 * Python 3.10+ installed.
 
 ### 2. Prepare the LLM
-Download the specialized coder model:
 ```bash
 ollama pull qwen2.5-coder:7b-instruct-q4_0
 ```
@@ -42,34 +41,27 @@ ollama pull qwen2.5-coder:7b-instruct-q4_0
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ### 4. Run the Servers
-**Start Ollama:**
 ```bash
-ollama serve
+# Start FastAPI (from /backend)
+uvicorn main:app --reload --port 8000
 ```
-
-**Start FastAPI:**
-```bash
-# From the /backend directory
-uvicorn app.main:app --reload
-```
-
-### 5. Launch Frontend
-Open `index.html` in your browser (use VS Code **Live Server** for the best experience).
 
 ---
 
 ## 🧠 How it Works (The Pipeline)
 
-1.  **User Input:** "Design a real-time EdTech app for India with a $1k budget."
-2.  **Extraction:** The LLM extracts `{ "region": "ap-south-1", "budget": 1000, "scale": "growth" }`.
-3.  **Retrieval:** ChromaDB finds the 3 most relevant "Architecture Best Practices" documents.
-4.  **Inference:** The LLM combines the query, the constraints, and the RAG context into a final system design.
-5.  **Rendering:** The frontend parses the JSON to display a component list, a strategy narrative, and a Mermaid diagram.
+
+
+1.  **Extraction:** The system passes the query through a **Classifier** to extract constraints (Budget, Region, Scale).
+2.  **Retrieval:** ChromaDB fetches the top 3 relevant architectural patterns based on the use case.
+3.  **Inference:** The LLM receives the Query + Constraints + RAG Context + Existing Diagram (if refining).
+4.  **Sanitization:** Python layers clean the output, validate Mermaid syntax, and standardize component categories.
+5.  **Rendering:** The UI updates narratives and diagrams without a page refresh using unique `Date.now()` seeds.
 
 ---
 
@@ -81,14 +73,15 @@ ArchPlan/
 │   ├── app/
 │   │   ├── models/       # Pydantic Schemas
 │   │   ├── rag/          # ChromaDB & Retriever logic
-│   │   ├── routes/       # FastAPI Endpoints
-│   │   └── services/     # LLM & Constraint logic
-│   └── main.py           # Entry point
+│   │   ├── services/     # extractor.py & llm_service.py
+│   │   └── prompts.py    # Dynamic System Prompts
+│   └── main.py           # FastAPI Entry point
 ├── data/                 # Knowledge base docs (.txt/.pdf)
-└── index.html            # UI Layer
+├── index.html            # UI Layer
+└── script.js             # State & Async Fetch logic
 ```
 
 ---
 
 ## ⚖️ License
-MIT License - Feel free to use this for your own architectural explorations!
+MIT License
