@@ -1,25 +1,19 @@
 from sentence_transformers import SentenceTransformer
 from app.rag.chroma_client import collection
 
-# load embedding model (same as ingest)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
-
-def retrieve_context(query: str, k: int = 4) -> str:
-
-    #Step 1: convert query → embedding
-    query_embedding = model.encode([query]).tolist()
-
-    #Step 2: search in vector DB
+def get_relevant_docs(query: str, n_results: int = 3):
+    # Vectorize the user's specific request
+    query_emb = model.encode(query).tolist()
+    
+    # Query ChromaDB
     results = collection.query(
-        query_embeddings=query_embedding,
-        n_results=k
+        query_embeddings=[query_emb],
+        n_results=n_results
     )
-
-    #Step 3: extract documents
-    docs = results.get("documents", [[]])[0]
-
-    #Step 4: combine into context string
-    context = "\n\n".join(docs)
-
-    return context
+    
+    # Join documents into one string for the prompt
+    if results['documents'] and len(results['documents'][0]) > 0:
+        return "\n".join(results['documents'][0])
+    return None

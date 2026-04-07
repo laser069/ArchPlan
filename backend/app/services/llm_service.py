@@ -2,6 +2,7 @@ import json
 import re
 import httpx
 from app.models.schema import GenerateResponse, Constraints
+from app.rag.retriever import get_relevant_docs
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "qwen2.5-coder:7b-instruct-q4_0"
@@ -303,51 +304,71 @@ async def generate_architecture(query: str, constraints: Constraints = None) -> 
     if constraints is None:
         constraints = Constraints()
 
+    # 1. RETRIEVE: Search ChromaDB for patterns
+    rag_docs = get_relevant_docs(query, n_results=3)
+    
+    # 2. CONTEXT BLOCK: Format RAG data
+    rag_context_block = ""
+    if rag_docs:
+        rag_context_block = (
+            "\n════════════════════════════════════════\n"
+            "INTERNAL ARCHITECTURE GUIDELINES (USE THESE AS PRIORITY):\n"
+            f"{rag_docs}\n"
+            "════════════════════════════════════════\n"
+        )
+
+    # 3. CONSTRAINT BLOCK
     constraint_block = build_constraint_block(constraints)
 
+    # 4. FINAL PROMPT
+    # ADDED: A small nudge to keep text concise to save tokens for the diagram.
+    token_saver = "\nNote: Keep 'architecture' and 'scaling' descriptions very concise to ensure the JSON does not truncate."
+    
     base_prompt = (
         f"{SYSTEM_PROMPT}\n\n"
+        f"{rag_context_block}"
         f"{constraint_block}\n\n"
+        f"{token_saver}\n\n" 
         f"INPUT: {query}\n\n"
         f"OUTPUT:"
     )
     prompt = base_prompt
 
+    # 5. GENERATION LOOP (Cleaned of duplicates)
     for attempt in range(3):
         print(f"\n--- Attempt {attempt + 1} | Model: {MODEL_NAME} ---")
-        print(f"Constraint block:\n{constraint_block[:200]}...")
-
+        
         try:
             raw_output = await call_model(prompt)
+            print(f"RAW OUTPUT (Length: {len(raw_output)} chars)")
+
+            data = try_parse(raw_output)
+
+            if data is None:
+                print("Could not parse JSON — retrying with stricter instruction")
+                prompt = base_prompt + "\nCRITICAL: Return ONLY valid JSON. Ensure the object is closed with }."
+                continue
+
+            # Normalize and Validate
+            data["components"] = normalize_components(data.get("components", []))
+            data["diagram"] = sanitize_diagram(data.get("diagram", "graph TD; A-->B;"))
+            data.setdefault("architecture", "Architecture not described.")
+            data.setdefault("scaling", "Scaling strategy not described.")
+
+            count = len(data["components"])
+            if count < 5:
+                print(f"Low component count ({count}), retrying for more detail...")
+                prompt = base_prompt + f"\nNote: Previous response had only {count} components. Please provide 8-14."
+                continue
+
+            return GenerateResponse(**data)
+
         except httpx.ReadTimeout:
             print(f"Attempt {attempt + 1}: Timed out")
             continue
         except Exception as e:
-            print(f"Attempt {attempt + 1}: HTTP error — {e}")
+            print(f"Attempt {attempt + 1} Error: {e}")
             continue
 
-        print("RAW OUTPUT (first 500 chars):\n", raw_output[:500])
-
-        data = try_parse(raw_output)
-
-        if data is None:
-            print("Could not parse JSON — retrying")
-            prompt = base_prompt + "\nCRITICAL: Output ONLY the raw JSON object. Start with { end with }. No other text."
-            continue
-
-        data["components"] = normalize_components(data.get("components", []))
-        data["diagram"] = sanitize_diagram(data.get("diagram", "graph TD; A-->B;"))
-        data.setdefault("architecture", "Architecture not described.")
-        data.setdefault("scaling", "Scaling strategy not described.")
-
-        count = len(data["components"])
-        print(f"Parsed OK — {count} components found")
-
-        if count < 5:
-            print(f"Too few components ({count}), retrying...")
-            prompt = base_prompt + f"\nYou returned only {count} components. Return 8–14 components."
-            continue
-
-        return GenerateResponse(**data)
-
+    # 6. FALLBACK
     return build_fallback(query, constraints)
