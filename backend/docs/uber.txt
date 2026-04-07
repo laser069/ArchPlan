@@ -1,0 +1,24 @@
+Ride Sharing System:
+
+Components:
+- NGINX Load Balancer
+- Kong Gateway
+- Auth Service
+- Ride Matching Service
+- Driver Location Service
+- Trip Service
+- Kafka Queue
+- Redis Cache
+- Cassandra DB
+- PostgreSQL DB
+- Prometheus Monitoring
+
+Architecture:
+Driver location updates stream into Kafka and are consumed by the matching service. Matching service uses geospatial queries on Cassandra to find nearest drivers. Redis caches active drivers. Trip service manages ride lifecycle and billing.
+
+Scaling:
+Kafka partitions events by region. Cassandra scales horizontally for high write throughput. Redis caches frequently accessed driver data. Services scale independently.
+
+Constraints:
+- Real-time system
+- High write throughput
