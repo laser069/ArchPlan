@@ -1,30 +1,21 @@
-// 1. GLOBAL STATE - Keeps the design in memory and browser storage
 let currentDiagramCode = localStorage.getItem("archplan_diagram") || "";
+let cachedConstraints = JSON.parse(localStorage.getItem("archplan_constraints") || "null");
 
-// Initialize UI on Page Load
 window.addEventListener('DOMContentLoaded', () => {
     console.log("ArchPlan Session Initialized");
     if (currentDiagramCode) {
-        // Restore buttons and state if we have a saved design
         setUpdateBtnState(true);
         const diagArea = document.getElementById("diagram");
         diagArea.innerHTML = "<p class='text-slate-400 text-xs text-center italic'>Previous design loaded. Click 'Refine' to modify or 'Reset' to start fresh.</p>";
     }
 });
 
-/**
- * Main Generation Function
- * @param {boolean} isUpdate - true for "Refine", false for "New Design"
- * @param {Event} event - The click event passed from HTML
- */
 async function generate(isUpdate = false, event = null) {
-    // 2. CRITICAL: PREVENT PAGE REFRESH
     if (event) event.preventDefault();
 
     const queryInput = document.getElementById("query");
     const query = queryInput.value.trim();
-    
-    // UI Elements
+
     const genBtn = document.getElementById("gen-btn");
     const updateBtn = document.getElementById("update-btn");
     const statusText = document.getElementById("status-text");
@@ -32,44 +23,47 @@ async function generate(isUpdate = false, event = null) {
     const diagArea = document.getElementById("diagram");
     const ragBadge = document.getElementById("rag-badge");
 
-    // --- VALIDATION & SAFETY ---
     if (!query) return alert("Please enter a design request first.");
-    
+
     if (isUpdate && !currentDiagramCode) {
         statusText.innerText = "⚠️ Generate a base design first!";
         statusText.classList.add("text-red-500");
         return;
     }
 
-    // --- UI START STATE ---
     genBtn.disabled = true;
     updateBtn.disabled = true;
     spinner.classList.remove("hidden");
     statusText.classList.remove("text-red-500");
-    
+
     if (isUpdate) {
         diagArea.classList.add("ring-2", "ring-emerald-500", "ring-opacity-50");
-        statusText.innerText = "Refining existing architecture...";
+        statusText.innerText = "Applying changes...";
     } else {
         statusText.innerText = "Analyzing requirements...";
     }
 
     try {
-        // Artificial progress updates for UX (Helps with RTX 2050 wait time)
         const progressInterval = setInterval(() => {
-            if (statusText.innerText.includes("Analyzing")) statusText.innerText = "Consulting knowledge base...";
-            else if (statusText.innerText.includes("Consulting")) statusText.innerText = "Drafting system components...";
-            else if (statusText.innerText.includes("Drafting")) statusText.innerText = "Finalizing Mermaid diagram...";
-        }, 12000);
+            if (isUpdate) {
+                if (statusText.innerText.includes("Applying")) statusText.innerText = "Updating diagram...";
+            } else {
+                if (statusText.innerText.includes("Analyzing")) statusText.innerText = "Consulting knowledge base...";
+                else if (statusText.innerText.includes("Consulting")) statusText.innerText = "Drafting system components...";
+                else if (statusText.innerText.includes("Drafting")) statusText.innerText = "Finalizing Mermaid diagram...";
+            }
+        }, isUpdate ? 6000 : 12000);
 
-        // 3. BACKEND FETCH
+        const requestBody = {
+            query: query,
+            existing_diagram: isUpdate ? currentDiagramCode : null,
+            cached_constraints: isUpdate ? cachedConstraints : null,
+        };
+
         const res = await fetch("http://localhost:8000/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                query: query,
-                existing_diagram: isUpdate ? currentDiagramCode : null 
-            })
+            body: JSON.stringify(requestBody)
         });
 
         clearInterval(progressInterval);
@@ -78,21 +72,24 @@ async function generate(isUpdate = false, event = null) {
 
         const data = await res.json();
 
-        // --- DATA PROCESSING ---
         if (data.diagram) {
             currentDiagramCode = data.diagram;
             localStorage.setItem("archplan_diagram", currentDiagramCode);
         }
 
-        // Update Text Content
+        // Cache constraints from new designs for future refine calls
+        if (!isUpdate && data.constraints) {
+            cachedConstraints = data.constraints;
+            localStorage.setItem("archplan_constraints", JSON.stringify(cachedConstraints));
+        }
+
         document.getElementById("architecture").innerText = data.architecture || "";
         document.getElementById("scaling").innerText = data.scaling || "";
         document.getElementById("architecture").classList.remove("italic", "text-slate-400");
         document.getElementById("scaling").classList.remove("italic", "text-slate-400");
-        
+
         if (ragBadge) ragBadge.classList.remove("hidden");
 
-        // 4. RENDER COMPONENTS LIST
         const compList = document.getElementById("components");
         compList.innerHTML = "";
         (data.components || []).forEach((c, i) => {
@@ -106,11 +103,10 @@ async function generate(isUpdate = false, event = null) {
             setTimeout(() => li.classList.remove("opacity-0", "translate-y-1"), i * 40);
         });
 
-        // 5. MERMAID RENDERING
         if (currentDiagramCode) {
             try {
-                diagArea.innerHTML = ""; // Clear loader
-                const mermaidId = "graph-" + Date.now(); // Unique ID for every render
+                diagArea.innerHTML = "";
+                const mermaidId = "graph-" + Date.now();
                 const { svg } = await mermaid.render(mermaidId, currentDiagramCode);
                 diagArea.innerHTML = svg;
             } catch (mermaidError) {
@@ -128,20 +124,16 @@ async function generate(isUpdate = false, event = null) {
         statusText.innerText = "❌ Generation failed. Check backend console.";
         statusText.classList.add("text-red-500");
     } finally {
-        // --- UI CLEANUP ---
         genBtn.disabled = false;
         spinner.classList.add("hidden");
         diagArea.classList.remove("ring-2", "ring-emerald-500", "ring-opacity-50");
         setUpdateBtnState(!!currentDiagramCode);
         if (!statusText.classList.contains("text-red-500")) {
-            statusText.innerText = "Design ready.";
+            statusText.innerText = isUpdate ? "Design refined." : "Design ready.";
         }
     }
 }
 
-/**
- * Utility to toggle the 'Refine' button styling
- */
 function setUpdateBtnState(enabled) {
     const btn = document.getElementById("update-btn");
     if (!btn) return;
@@ -156,13 +148,12 @@ function setUpdateBtnState(enabled) {
     }
 }
 
-/**
- * Clears the session and UI
- */
 function resetState() {
     if (confirm("Wipe current design and start fresh?")) {
         currentDiagramCode = "";
+        cachedConstraints = null;
         localStorage.removeItem("archplan_diagram");
+        localStorage.removeItem("archplan_constraints");
         location.reload();
     }
 }
