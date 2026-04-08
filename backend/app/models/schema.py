@@ -19,11 +19,12 @@ class Component(BaseModel):
 class GenerateRequest(BaseModel):
     query: str
     constraints: Constraints | None = None
-    # This is the "Context Bridge" for the refinement loop
-    existing_diagram: Optional[str] = None 
+    existing_diagram: Optional[str] = None
+    cached_constraints: Optional[dict] = None  # reused on refine to skip extraction
 
 class GenerateResponse(BaseModel):
     components: List[Component]
     architecture: str
     scaling: str
     diagram: str
+    constraints: Optional[dict] = None  # echoed back so frontend can cache it

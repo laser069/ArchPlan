@@ -10,29 +10,39 @@ router = APIRouter()
 async def generate_endpoint(req: GenerateRequest):
     start_time = time.time()
     is_refine = bool(req.existing_diagram)
-    
-    print(f"\n--- {'Refining' if is_refine else 'New'} Design Request ---")
+
+    print(f"\n--- {'Refining (FAST PATH)' if is_refine else 'New Design'} Request ---")
     print(f"Query: {req.query[:50]}...")
 
     try:
-        extracted_dict = await extract_constraints(req.query)
-
-        if req.constraints:
-            explicit = req.constraints.model_dump(exclude_none=True)
-            merged = {**extracted_dict, **explicit}
+        if is_refine:
+            cached = req.cached_constraints or (
+                req.constraints.model_dump(exclude_none=True) if req.constraints else {}
+            )
+            constraints = Constraints(**cached)
         else:
-            merged = extracted_dict
+            extracted_dict = await extract_constraints(req.query)
+            if req.constraints:
+                explicit = req.constraints.model_dump(exclude_none=True)
+                merged = {**extracted_dict, **explicit}
+            else:
+                merged = extracted_dict
+            constraints = Constraints(**merged)
 
-        constraints = Constraints(**merged)
-
-        # Pass existing_diagram to the service
         result = await generate_architecture(
-            query=req.query, 
+            query=req.query,
             constraints=constraints,
-            existing_diagram=req.existing_diagram
+            existing_diagram=req.existing_diagram,
+            existing_components=None,
+            cached_constraints=req.cached_constraints,
         )
-        
-        print(f"--- Completed in {time.time() - start_time:.2f}s ---\n")
+
+        # Echo constraints back to frontend for caching (new designs only)
+        if not is_refine:
+            result.constraints = constraints.model_dump(exclude_none=True)
+
+        elapsed = time.time() - start_time
+        print(f"--- Completed in {elapsed:.2f}s {'(fast refine)' if is_refine else '(full generate)'} ---\n")
         return result
 
     except Exception as e:
