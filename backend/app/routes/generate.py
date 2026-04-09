@@ -11,10 +11,11 @@ async def generate_endpoint(req: GenerateRequest):
     start_time = time.time()
     is_refine = bool(req.existing_diagram)
 
-    print(f"\n--- {'Refining (FAST PATH)' if is_refine else 'New Design'} Request ---")
+    print(f"\n--- {'Refining' if is_refine else 'New Design'} Request ---")
     print(f"Query: {req.query[:50]}...")
 
     try:
+        # 1. Constraint Logic
         if is_refine:
             cached = req.cached_constraints or (
                 req.constraints.model_dump(exclude_none=True) if req.constraints else {}
@@ -29,20 +30,24 @@ async def generate_endpoint(req: GenerateRequest):
                 merged = extracted_dict
             constraints = Constraints(**merged)
 
+        # 2. Call Service 
+        # Added: Passing req.existing_components so refinement actually knows what's already there
+        # Added: req.provider (if you added it to your GenerateRequest schema) or default
         result = await generate_architecture(
             query=req.query,
+            provider=getattr(req, "provider", "gemini"), 
             constraints=constraints,
             existing_diagram=req.existing_diagram,
-            existing_components=None,
+            existing_components=req.existing_components, # Changed from None
             cached_constraints=req.cached_constraints,
         )
 
-        # Echo constraints back to frontend for caching (new designs only)
+        # 3. Metadata for Frontend
         if not is_refine:
             result.constraints = constraints.model_dump(exclude_none=True)
 
         elapsed = time.time() - start_time
-        print(f"--- Completed in {elapsed:.2f}s {'(fast refine)' if is_refine else '(full generate)'} ---\n")
+        print(f"--- Completed in {elapsed:.2f}s ---")
         return result
 
     except Exception as e:

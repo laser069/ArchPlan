@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Dict, Any
 
 class Constraints(BaseModel):
     budget_usd_month: int | None = None
@@ -18,13 +18,18 @@ class Component(BaseModel):
 
 class GenerateRequest(BaseModel):
     query: str
-    constraints: Constraints | None = None
+    # Added: Support for choosing the LLM provider
+    provider: Literal["gemini", "ollama"] = "gemini"
+    constraints: Optional[Constraints] = None
     existing_diagram: Optional[str] = None
-    cached_constraints: Optional[dict] = None  # reused on refine to skip extraction
+    # Added: Pass back previous components so the LLM keeps names consistent
+    existing_components: Optional[List[Dict[str, Any]]] = None
+    cached_constraints: Optional[Dict[str, Any]] = None
 
 class GenerateResponse(BaseModel):
     components: List[Component]
     architecture: str
     scaling: str
     diagram: str
-    constraints: Optional[dict] = None  # echoed back so frontend can cache it
+    # Changed to Any/Dict to ensure the frontend can easily store/return it
+    constraints: Optional[Dict[str, Any]] = None
