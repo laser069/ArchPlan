@@ -1,12 +1,18 @@
 let currentDiagramCode = localStorage.getItem("archplan_diagram") || "";
 let cachedConstraints = JSON.parse(localStorage.getItem("archplan_constraints") || "null");
+let currentComponents = JSON.parse(localStorage.getItem("archplan_components") || "[]");
 
 window.addEventListener('DOMContentLoaded', () => {
-    console.log("ArchPlan Session Initialized");
+    // Set initial provider value from storage
+    const savedProvider = localStorage.getItem("archplan_provider") || "gemini";
+    document.getElementById("provider-select").value = savedProvider;
+
     if (currentDiagramCode) {
         setUpdateBtnState(true);
         const diagArea = document.getElementById("diagram");
         diagArea.innerHTML = "<p class='text-slate-400 text-xs text-center italic'>Previous design loaded. Click 'Refine' to modify or 'Reset' to start fresh.</p>";
+        // Re-render if you want it visible on load:
+        renderMermaid(currentDiagramCode);
     }
 });
 
@@ -15,48 +21,37 @@ async function generate(isUpdate = false, event = null) {
 
     const queryInput = document.getElementById("query");
     const query = queryInput.value.trim();
+    if (!query) return alert("Please enter a design request first.");
 
+    // DOM Elements
     const genBtn = document.getElementById("gen-btn");
     const updateBtn = document.getElementById("update-btn");
     const statusText = document.getElementById("status-text");
     const spinner = document.getElementById("status-spinner");
     const diagArea = document.getElementById("diagram");
-    const ragBadge = document.getElementById("rag-badge");
+    const diagContainer = document.getElementById("diagram-container");
+    const provider = document.getElementById("provider-select").value;
 
-    if (!query) return alert("Please enter a design request first.");
-
-    if (isUpdate && !currentDiagramCode) {
-        statusText.innerText = "⚠️ Generate a base design first!";
-        statusText.classList.add("text-red-500");
-        return;
-    }
-
+    // UI States
     genBtn.disabled = true;
     updateBtn.disabled = true;
     spinner.classList.remove("hidden");
     statusText.classList.remove("text-red-500");
 
     if (isUpdate) {
-        diagArea.classList.add("ring-2", "ring-emerald-500", "ring-opacity-50");
+        diagContainer.classList.add("refining-active");
         statusText.innerText = "Applying changes...";
     } else {
+        diagContainer.classList.remove("refining-active");
         statusText.innerText = "Analyzing requirements...";
     }
 
     try {
-        const progressInterval = setInterval(() => {
-            if (isUpdate) {
-                if (statusText.innerText.includes("Applying")) statusText.innerText = "Updating diagram...";
-            } else {
-                if (statusText.innerText.includes("Analyzing")) statusText.innerText = "Consulting knowledge base...";
-                else if (statusText.innerText.includes("Consulting")) statusText.innerText = "Drafting system components...";
-                else if (statusText.innerText.includes("Drafting")) statusText.innerText = "Finalizing Mermaid diagram...";
-            }
-        }, isUpdate ? 6000 : 12000);
-
         const requestBody = {
             query: query,
+            provider: provider,
             existing_diagram: isUpdate ? currentDiagramCode : null,
+            existing_components: isUpdate ? currentComponents : null,
             cached_constraints: isUpdate ? cachedConstraints : null,
         };
 
@@ -66,30 +61,30 @@ async function generate(isUpdate = false, event = null) {
             body: JSON.stringify(requestBody)
         });
 
-        clearInterval(progressInterval);
-
         if (!res.ok) throw new Error(`Backend Error: ${res.status}`);
-
         const data = await res.json();
 
+        // 1. Update State & LocalStorage
         if (data.diagram) {
             currentDiagramCode = data.diagram;
             localStorage.setItem("archplan_diagram", currentDiagramCode);
         }
-
-        // Cache constraints from new designs for future refine calls
+        if (data.components) {
+            currentComponents = data.components;
+            localStorage.setItem("archplan_components", JSON.stringify(currentComponents));
+        }
         if (!isUpdate && data.constraints) {
             cachedConstraints = data.constraints;
             localStorage.setItem("archplan_constraints", JSON.stringify(cachedConstraints));
         }
 
+        // 2. Update Text Content
         document.getElementById("architecture").innerText = data.architecture || "";
         document.getElementById("scaling").innerText = data.scaling || "";
         document.getElementById("architecture").classList.remove("italic", "text-slate-400");
         document.getElementById("scaling").classList.remove("italic", "text-slate-400");
 
-        if (ragBadge) ragBadge.classList.remove("hidden");
-
+        // 3. Render Components List
         const compList = document.getElementById("components");
         compList.innerHTML = "";
         (data.components || []).forEach((c, i) => {
@@ -103,20 +98,9 @@ async function generate(isUpdate = false, event = null) {
             setTimeout(() => li.classList.remove("opacity-0", "translate-y-1"), i * 40);
         });
 
+        // 4. Render Mermaid Diagram
         if (currentDiagramCode) {
-            try {
-                diagArea.innerHTML = "";
-                const mermaidId = "graph-" + Date.now();
-                const { svg } = await mermaid.render(mermaidId, currentDiagramCode);
-                diagArea.innerHTML = svg;
-            } catch (mermaidError) {
-                console.error("Mermaid Render Fail:", mermaidError);
-                diagArea.innerHTML = `
-                    <div class="p-4 bg-amber-50 rounded border border-amber-200">
-                        <p class='text-amber-700 text-xs font-bold'>Diagram Logic Error</p>
-                        <code class='block mt-2 text-[10px] text-slate-500 break-all'>${currentDiagramCode}</code>
-                    </div>`;
-            }
+            await renderMermaid(currentDiagramCode);
         }
 
     } catch (err) {
@@ -126,11 +110,25 @@ async function generate(isUpdate = false, event = null) {
     } finally {
         genBtn.disabled = false;
         spinner.classList.add("hidden");
-        diagArea.classList.remove("ring-2", "ring-emerald-500", "ring-opacity-50");
         setUpdateBtnState(!!currentDiagramCode);
         if (!statusText.classList.contains("text-red-500")) {
             statusText.innerText = isUpdate ? "Design refined." : "Design ready.";
         }
+    }
+}
+
+async function renderMermaid(code) {
+    const diagArea = document.getElementById("diagram");
+    try {
+        diagArea.innerHTML = "";
+        const mermaidId = "graph-" + Date.now();
+        const { svg } = await mermaid.render(mermaidId, code);
+        diagArea.innerHTML = svg;
+    } catch (err) {
+        diagArea.innerHTML = `<div class="p-4 bg-amber-50 rounded border border-amber-200">
+            <p class='text-amber-700 text-xs font-bold'>Render Error</p>
+            <code class='block mt-2 text-[10px] text-slate-500 break-all'>${code}</code>
+        </div>`;
     }
 }
 
@@ -144,7 +142,6 @@ function setUpdateBtnState(enabled) {
     } else {
         btn.disabled = true;
         btn.classList.add("opacity-50", "cursor-not-allowed");
-        btn.classList.remove("hover:border-emerald-500", "hover:text-emerald-600");
     }
 }
 
@@ -152,8 +149,8 @@ function resetState() {
     if (confirm("Wipe current design and start fresh?")) {
         currentDiagramCode = "";
         cachedConstraints = null;
-        localStorage.removeItem("archplan_diagram");
-        localStorage.removeItem("archplan_constraints");
+        currentComponents = [];
+        localStorage.clear();
         location.reload();
     }
 }

@@ -11,16 +11,11 @@
   <style>
     body { font-family: 'Inter', sans-serif; background-color: #fcfcfd; }
     .mono { font-family: 'JetBrains Mono', monospace; }
-    /* Visual cue for Refinement mode */
-    .refining-active { border-color: #6366f1 !important; box-shadow: 0 0 15px rgba(99, 102, 241, 0.1); }
+    .refining-active { border-color: #6366f1 !important; box-shadow: 0 0 20px rgba(99, 102, 241, 0.15); }
   </style>
 
   <script>
-    mermaid.initialize({ 
-      startOnLoad: false, 
-      theme: 'neutral',
-      securityLevel: 'loose'
-    });
+    mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
   </script>
 </head>
 
@@ -28,7 +23,14 @@
 
   <header class="border-b border-slate-200 bg-white">
     <div class="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
-      <h1 class="text-lg font-bold tracking-tight text-slate-800">ArchPlan</h1>
+      <div class="flex items-center gap-4">
+        <h1 class="text-lg font-bold tracking-tight text-slate-800">ArchPlan</h1>
+        <select id="provider-select" onchange="localStorage.setItem('archplan_provider', this.value)" 
+          class="text-[10px] font-bold border border-slate-200 rounded bg-slate-50 px-2 py-1 text-slate-500 uppercase tracking-wider outline-none focus:border-indigo-500">
+            <option value="gemini">Gemini (Cloud)</option>
+            <option value="ollama">Ollama (Local)</option>
+        </select>
+      </div>
       <div id="rag-badge" class="hidden px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] font-bold rounded border border-amber-100 uppercase tracking-wider">
         Pattern Library Active
       </div>
@@ -36,7 +38,6 @@
   </header>
 
   <main class="max-w-7xl mx-auto p-6 space-y-6">
-    
     <section>
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden focus-within:border-indigo-500 transition-all">
         <textarea id="query"
@@ -45,16 +46,16 @@
           placeholder="e.g., Design a real-time tracking system for a fleet of 500 trucks..."></textarea>
         
         <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-<div class="flex items-center gap-2">
-  <button id="gen-btn" type="button" onclick="generate(false, event)"
-    class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95">
-    Generate
-  </button>
-  <button id="update-btn" type="button" onclick="generate(true, event)" disabled
-    class="opacity-50 cursor-not-allowed bg-white border border-slate-200 text-slate-500 px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95">
-    Refine Design
-  </button>
-</div>
+          <div class="flex items-center gap-2">
+            <button id="gen-btn" type="button" onclick="generate(false, event)"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95">
+              Generate
+            </button>
+            <button id="update-btn" type="button" onclick="generate(true, event)" disabled
+              class="opacity-50 cursor-not-allowed bg-white border border-slate-200 text-slate-500 px-5 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95">
+              Refine Design
+            </button>
+          </div>
 
           <div id="status-spinner" class="hidden flex items-center gap-2 text-xs text-slate-500 font-medium">
             <svg class="animate-spin h-3 w-3 text-indigo-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -69,7 +70,6 @@
     </section>
 
     <section class="grid lg:grid-cols-4 gap-6">
-      
       <div class="lg:col-span-1 space-y-4">
         <div class="bg-white rounded-xl border border-slate-200 p-5">
           <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">System Components</h2>
@@ -94,17 +94,16 @@
       </div>
 
       <div class="lg:col-span-3">
-        <div id="diagram-container" class="bg-white rounded-xl border border-slate-200 p-5 h-full min-h-[600px] flex flex-col transition-all duration-500">
+        <div id="diagram-container" class="bg-white rounded-xl border border-slate-200 p-5 h-full min-h-[600px] flex flex-col transition-all duration-300">
           <div class="flex items-center justify-between mb-4 border-b border-slate-50 pb-2">
             <h2 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mermaid Live Preview</h2>
-            <span class="text-[9px] mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase">Optimized for local 7B</span>
+            <span id="provider-badge" class="text-[9px] mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase">Hybrid Mode</span>
           </div>
           <div id="diagram" class="flex-grow flex justify-center items-center bg-[#fdfdfd] rounded-lg border border-slate-100 overflow-auto p-4">
              <p class="text-slate-300 text-xs text-center">Enter a prompt above to visualize your architecture.</p>
           </div>
         </div>
       </div>
-
     </section>
   </main>
 
