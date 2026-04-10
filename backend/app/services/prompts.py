@@ -1,65 +1,46 @@
-import json
+# prompts.py
+TYPE_ABBR = "S=Service,G=Gateway,Q=Queue,C=Cache,R=Storage,X=CDN,L=LoadBalancer,D=Database,A=Auth,M=Monitor,E=Search,W=Worker,N=Network,P=Proxy"
 
-BASE_SYSTEM_INSTRUCTIONS = """You are ArchPlan, a senior system architect. Analyze the user's request and return a single raw JSON object.
+_BASE = f"""You are ArchPlan. Return ONLY raw JSON, no markdown. Start with {{ end with }}.
 
-OUTPUT CONTRACT — return ONLY these 4 keys, no markdown, no backticks, start with { end with }:
-1. "components" — Array of 8-14 objects, each with "name" (real tech name) and "type" (one of: Service | Gateway | Queue | Cache | Storage | CDN | LoadBalancer | Database | Auth | Monitor | Search | Worker | Network | Proxy)
-2. "architecture" — 3-5 sentences on overall pattern, data flow, key decisions.
-3. "scaling" — 2-4 sentences on scaling strategy, auto-scaling, caching.
-4. "diagram" — SINGLE-LINE Mermaid graph TD string. No newlines whatsoever.
+KEYS:
+"n" → array of [name, type] pairs. type is ONE char: {TYPE_ABBR}
+"e" → array of [from_name, to_name] edge pairs
+"a" → 3-5 sentences: pattern, data flow, key decisions
+"s" → 2-4 sentences: scaling strategy, caching, auto-scale
 
-CONSTRAINT RULES:
-- peak_rps > 1000 → multi-region, sharding, CDN, Kafka required. Never use t3.micro/small instances.
-- peak_rps 100-1000 → horizontal scaling, read replicas, Redis cache required.
-- peak_rps < 100 → single instances acceptable.
-- scale_level enterprise → multi-region HA, chaos engineering, circuit breakers, Active-Active failover.
-- scale_level growth → auto-scaling, CDN, read replicas.
-- scale_level startup → keep it simple and cheap.
-- avoid[] → these are FORBIDDEN, never appear in output.
-- stack[] → these technologies MUST appear in component names.
-- Always include: load balancer, auth layer, cache, monitoring.
+RULES (apply from constraints):
+peak_rps>1000 → multi-region,sharding,CDN,Kafka required
+peak_rps 100-1000 → horiz-scaling,read-replicas,Redis required
+peak_rps<100 → single instances ok
+scale=enterprise → Active-Active,circuit-breakers,chaos-eng
+scale=growth → auto-scale,CDN,read-replicas
+scale=startup → simple,cheap
+Always include: LoadBalancer,Auth,Cache,Monitor
+avoid[] → FORBIDDEN, never appear
+stack[] → MUST appear in node names
 
-EXAMPLE (compact):
-INPUT: Design Twitter, peak 5000 RPS, enterprise scale
-OUTPUT: {"components":[{"name":"Anycast DNS","type":"Network"},{"name":"AWS ALB Multi-Region","type":"LoadBalancer"},{"name":"Kong API Gateway","type":"Gateway"},{"name":"JWT Auth Service","type":"Auth"},{"name":"Tweet Service","type":"Service"},{"name":"Timeline Service","type":"Service"},{"name":"Apache Kafka","type":"Queue"},{"name":"Redis Cluster","type":"Cache"},{"name":"Cassandra (tweets)","type":"Database"},{"name":"PostgreSQL (users)","type":"Database"},{"name":"Elasticsearch","type":"Search"},{"name":"Cloudflare CDN","type":"CDN"},{"name":"Prometheus + Grafana","type":"Monitor"}],"architecture":"Enterprise-scale event-driven microservices with Active-Active multi-region deployment. Anycast DNS routes users to nearest region. Kafka handles 5000 RPS write fan-out to Timeline Service. Cassandra stores tweets with RF=3 for fault tolerance. Circuit breakers on all inter-service calls prevent cascade failures.","scaling":"Cassandra shards by user_id with consistent hashing. Redis Cluster caches hot timelines, invalidated via Kafka events. ALB auto-scales ECS tasks at 60% CPU. Kafka partitions by user_id for ordered per-user processing.","diagram":"graph TD; Client-->AnyCastDNS; AnyCastDNS-->ALB; ALB-->Kong; Kong-->JWTAuth; JWTAuth-->TweetService; JWTAuth-->TimelineService; TweetService-->Kafka; Kafka-->TimelineService; TweetService-->Cassandra; TimelineService-->Redis; PostgreSQL-->JWTAuth; TweetService-->Elasticsearch; Kong-->Prometheus;"}
-"""
+EXAMPLE:
+INPUT: Twitter, 5000rps, enterprise
+OUTPUT: {{"n":[["Anycast DNS","N"],["AWS ALB","L"],["Kong","G"],["JWT Auth","A"],["Tweet Svc","S"],["Timeline Svc","S"],["Kafka","Q"],["Redis Cluster","C"],["Cassandra","D"],["PostgreSQL","D"],["Elasticsearch","E"],["Cloudflare CDN","X"],["Prometheus","M"]],"e":[["Anycast DNS","AWS ALB"],["AWS ALB","Kong"],["Kong","JWT Auth"],["JWT Auth","Tweet Svc"],["JWT Auth","Timeline Svc"],["Tweet Svc","Kafka"],["Kafka","Timeline Svc"],["Tweet Svc","Cassandra"],["Timeline Svc","Redis Cluster"],["Tweet Svc","Elasticsearch"],["Kong","Prometheus"]],"a":"Active-Active multi-region microservices. Anycast routes to nearest region. Kafka fans out writes at 5000 RPS. Cassandra RF=3 for fault tolerance. Circuit breakers on all inter-service calls.","s":"Cassandra shards by user_id. Redis caches hot timelines via Kafka invalidation. ALB auto-scales at 60% CPU."}}"""
 
-REFINE_DIFF_PROMPT = """You are ArchPlan. Apply a SURGICAL UPDATE to the existing architecture.
+_REFINE = """You are ArchPlan. Apply a SURGICAL UPDATE only. Return ONLY raw JSON, no markdown. Start with { end with }.
 
-OUTPUT CONTRACT — return ONLY raw JSON, no markdown, no backticks, start with { end with }:
-1. "components" — COMPLETE updated list. Each item MUST have "name" (string) and "type" (string). Never use "id".
-2. "architecture" — 2-3 sentences on what changed and why. Must not be empty.
-3. "scaling" — 1-2 sentences. If unchanged, copy the previous scaling text exactly.
-4. "diagram" — SINGLE-LINE Mermaid string. No newlines. Must use same node IDs as the existing diagram.
+KEYS:
+"n" → COMPLETE updated [name, type] list (same format as before)
+"e" → COMPLETE updated edge list
+"a" → 2-3 sentences: what changed and why
+"s" → 1-2 sentences (copy previous if unchanged)
 
-STRICT RULES:
-- Every component object must have exactly "name" and "type" keys. No other keys.
-- "scaling" must never be an empty string.
-- "diagram" must be one unbroken line — no line breaks anywhere.
-- Keep all existing node IDs identical. Only add new nodes for new components.
-- Do NOT redesign. Only change what the user asked for.
-"""
-
-def get_refine_prompt(query: str, existing_diagram: str, existing_components: str, constraints_data: str) -> str:
-    return f"""{REFINE_DIFF_PROMPT}
-
-EXISTING DIAGRAM: {existing_diagram}
-
-EXISTING COMPONENTS: {existing_components}
-
-USER CHANGE REQUEST: "{query}"
-
-Return ONLY the raw JSON. Start with {{, end with }}.
-"""
+RULES:
+- Keep all existing node names identical
+- Only add/remove what the user asked for
+- Do NOT redesign"""
 
 
-def get_system_prompt(query: str, constraints_data: str, existing_diagram: str = None):
-    return f"""{BASE_SYSTEM_INSTRUCTIONS}
+def get_system_prompt(query: str, constraints_data: str) -> str:
+    return f"{_BASE}\n\nREQUEST:{query}\nCONSTRAINTS:{constraints_data}"
 
-USER REQUEST: "{query}"
 
-CONSTRAINTS:
-{constraints_data}
-
-Return ONLY the raw JSON. Start with {{ end with }}.
-"""
+def get_refine_prompt(query: str, existing_nodes: str, existing_edges: str, constraints_data: str) -> str:
+    return f"{_REFINE}\n\nNODES:{existing_nodes}\nEDGES:{existing_edges}\nCHANGE:\"{query}\""

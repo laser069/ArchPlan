@@ -1,55 +1,41 @@
+# router.py
+import time
+import traceback
 from fastapi import APIRouter, HTTPException
 from app.models.schema import GenerateRequest, GenerateResponse, Constraints
 from app.services.llm_service import generate_architecture
 from app.services.constraint_extractor import extract_constraints
-import time
 
 router = APIRouter()
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_endpoint(req: GenerateRequest):
-    start_time = time.time()
+    t0 = time.time()
     is_refine = bool(req.existing_diagram)
-
-    print(f"\n--- {'Refining' if is_refine else 'New Design'} Request ---")
-    print(f"Query: {req.query[:50]}...")
-
+    print(f"\n--- {'Refine' if is_refine else 'New'} | {req.query[:50]} ---")
     try:
-        # 1. Constraint Logic
         if is_refine:
-            cached = req.cached_constraints or (
-                req.constraints.model_dump(exclude_none=True) if req.constraints else {}
-            )
-            constraints = Constraints(**cached)
+            constraints = Constraints(**(req.cached_constraints or
+                (req.constraints.model_dump(exclude_none=True) if req.constraints else {})))
         else:
-            extracted_dict = await extract_constraints(req.query)
-            if req.constraints:
-                explicit = req.constraints.model_dump(exclude_none=True)
-                merged = {**extracted_dict, **explicit}
-            else:
-                merged = extracted_dict
+            extracted = await extract_constraints(req.query)
+            merged = {**extracted, **(req.constraints.model_dump(exclude_none=True) if req.constraints else {})}
             constraints = Constraints(**merged)
 
-        # 2. Call Service 
-        # Added: Passing req.existing_components so refinement actually knows what's already there
-        # Added: req.provider (if you added it to your GenerateRequest schema) or default
         result = await generate_architecture(
             query=req.query,
-            provider=getattr(req, "provider", "gemini"), 
+            provider=getattr(req, "provider", "gemini"),
             constraints=constraints,
             existing_diagram=req.existing_diagram,
-            existing_components=req.existing_components, # Changed from None
+            existing_components=req.existing_components,
             cached_constraints=req.cached_constraints,
         )
-
-        # 3. Metadata for Frontend
         if not is_refine:
-            result.constraints = constraints.model_dump(exclude_none=True)
+            result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
 
-        elapsed = time.time() - start_time
-        print(f"--- Completed in {elapsed:.2f}s ---")
+        print(f"--- Done in {time.time()-t0:.2f}s ---")
         return result
-
     except Exception as e:
-        print(f"!!! ERROR: {str(e)}")
+        print(f"!!! {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
