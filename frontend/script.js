@@ -1,156 +1,131 @@
-let currentDiagramCode = localStorage.getItem("archplan_diagram") || "";
-let cachedConstraints = JSON.parse(localStorage.getItem("archplan_constraints") || "null");
-let currentComponents = JSON.parse(localStorage.getItem("archplan_components") || "[]");
+const LS = {
+  diagram:      "ap_diagram",
+  architecture: "ap_architecture",
+  scaling:      "ap_scaling",
+  constraints:  "ap_constraints",
+  components:   "ap_components",
+  provider:     "ap_provider",
+};
 
-window.addEventListener('DOMContentLoaded', () => {
-    // Set initial provider value from storage
-    const savedProvider = localStorage.getItem("archplan_provider") || "gemini";
-    document.getElementById("provider-select").value = savedProvider;
+let state = {
+  diagram:      localStorage.getItem(LS.diagram) || "",
+  architecture: localStorage.getItem(LS.architecture) || "",
+  scaling:      localStorage.getItem(LS.scaling) || "",
+  constraints:  JSON.parse(localStorage.getItem(LS.constraints) || "null"),
+  components:   JSON.parse(localStorage.getItem(LS.components) || "[]"),
+};
 
-    if (currentDiagramCode) {
-        setUpdateBtnState(true);
-        const diagArea = document.getElementById("diagram");
-        diagArea.innerHTML = "<p class='text-slate-400 text-xs text-center italic'>Previous design loaded. Click 'Refine' to modify or 'Reset' to start fresh.</p>";
-        // Re-render if you want it visible on load:
-        renderMermaid(currentDiagramCode);
-    }
+const $ = id => document.getElementById(id);
+
+window.addEventListener("DOMContentLoaded", () => {
+  $("provider-select").value = localStorage.getItem(LS.provider) || "gemini";
+  
+  if (state.architecture) $("architecture").textContent = state.architecture;
+  if (state.scaling) $("scaling").textContent = state.scaling;
+  if (state.architecture || state.scaling) {
+    [$("architecture"), $("scaling")].forEach(el => el.classList.remove("italic", "text-slate-400"));
+  }
+  
+  if (state.diagram) {
+    setRefineEnabled(true);
+    renderMermaid(state.diagram);
+  }
 });
 
-async function generate(isUpdate = false, event = null) {
-    if (event) event.preventDefault();
+async function generate(isRefine = false) {
+  const query = $("query").value.trim();
+  if (!query) return alert("Enter a design request first.");
 
-    const queryInput = document.getElementById("query");
-    const query = queryInput.value.trim();
-    if (!query) return alert("Please enter a design request first.");
+  setLoading(true, isRefine);
 
-    // DOM Elements
-    const genBtn = document.getElementById("gen-btn");
-    const updateBtn = document.getElementById("update-btn");
-    const statusText = document.getElementById("status-text");
-    const spinner = document.getElementById("status-spinner");
-    const diagArea = document.getElementById("diagram");
-    const diagContainer = document.getElementById("diagram-container");
-    const provider = document.getElementById("provider-select").value;
+  if (isRefine) $("diagram-container").classList.add("refining");
+  else          $("diagram-container").classList.remove("refining");
 
-    // UI States
-    genBtn.disabled = true;
-    updateBtn.disabled = true;
-    spinner.classList.remove("hidden");
-    statusText.classList.remove("text-red-500");
+  try {
+    const res = await fetch("http://localhost:8000/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        provider: $("provider-select").value,
+        existing_diagram:     isRefine ? state.diagram : null,
+        existing_components:  isRefine ? state.components : null,
+        cached_constraints:   isRefine ? state.constraints : null,
+      }),
+    });
 
-    if (isUpdate) {
-        diagContainer.classList.add("refining-active");
-        statusText.innerText = "Applying changes...";
-    } else {
-        diagContainer.classList.remove("refining-active");
-        statusText.innerText = "Analyzing requirements...";
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
 
-    try {
-        const requestBody = {
-            query: query,
-            provider: provider,
-            existing_diagram: isUpdate ? currentDiagramCode : null,
-            existing_components: isUpdate ? currentComponents : null,
-            cached_constraints: isUpdate ? cachedConstraints : null,
-        };
+    if (data.diagram)    { state.diagram = data.diagram; localStorage.setItem(LS.diagram, state.diagram); }
+    if (data.components) { state.components = data.components; localStorage.setItem(LS.components, JSON.stringify(state.components)); }
+    if (data.architecture) { state.architecture = data.architecture; localStorage.setItem(LS.architecture, state.architecture); }
+    if (data.scaling) { state.scaling = data.scaling; localStorage.setItem(LS.scaling, state.scaling); }
+    if (!isRefine && data.constraints) { state.constraints = data.constraints; localStorage.setItem(LS.constraints, JSON.stringify(state.constraints)); }
 
-        const res = await fetch("http://localhost:8000/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody)
-        });
+    $('architecture').textContent = state.architecture;
+    $('scaling').textContent = state.scaling;
+    [$("architecture"), $("scaling")].forEach(el => el.classList.remove("italic", "text-slate-400"));
 
-        if (!res.ok) throw new Error(`Backend Error: ${res.status}`);
-        const data = await res.json();
+    $("components").innerHTML = "";
+    (data.components || []).forEach((c, i) => {
+      const li = document.createElement("li");
+      li.className = "flex justify-between items-center bg-slate-50 border border-slate-100 px-2.5 py-1.5 rounded-lg text-xs opacity-0 translate-y-1 transition-all duration-300";
+      li.innerHTML = `<span class="font-medium text-slate-700">${c.name}</span><span class="mono text-[9px] font-bold bg-violet-50 text-violet-700 px-1.5 py-0.5 rounded uppercase">${c.type}</span>`;
+      $("components").appendChild(li);
+      setTimeout(() => li.classList.remove("opacity-0", "translate-y-1"), i * 35);
+    });
 
-        // 1. Update State & LocalStorage
-        if (data.diagram) {
-            currentDiagramCode = data.diagram;
-            localStorage.setItem("archplan_diagram", currentDiagramCode);
-        }
-        if (data.components) {
-            currentComponents = data.components;
-            localStorage.setItem("archplan_components", JSON.stringify(currentComponents));
-        }
-        if (!isUpdate && data.constraints) {
-            cachedConstraints = data.constraints;
-            localStorage.setItem("archplan_constraints", JSON.stringify(cachedConstraints));
-        }
+    if (state.diagram) await renderMermaid(state.diagram);
+    setStatus(isRefine ? "Refined." : "Ready.");
 
-        // 2. Update Text Content
-        document.getElementById("architecture").innerText = data.architecture || "";
-        document.getElementById("scaling").innerText = data.scaling || "";
-        document.getElementById("architecture").classList.remove("italic", "text-slate-400");
-        document.getElementById("scaling").classList.remove("italic", "text-slate-400");
-
-        // 3. Render Components List
-        const compList = document.getElementById("components");
-        compList.innerHTML = "";
-        (data.components || []).forEach((c, i) => {
-            const li = document.createElement("li");
-            li.className = "flex justify-between items-center bg-slate-50 border border-slate-100 px-3 py-2 rounded-lg opacity-0 translate-y-1 transition-all duration-300";
-            li.innerHTML = `
-                <span class="text-sm font-medium text-slate-700">${c.name}</span>
-                <span class="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded uppercase">${c.type}</span>
-            `;
-            compList.appendChild(li);
-            setTimeout(() => li.classList.remove("opacity-0", "translate-y-1"), i * 40);
-        });
-
-        // 4. Render Mermaid Diagram
-        if (currentDiagramCode) {
-            await renderMermaid(currentDiagramCode);
-        }
-
-    } catch (err) {
-        console.error("Critical Failure:", err);
-        statusText.innerText = "❌ Generation failed. Check backend console.";
-        statusText.classList.add("text-red-500");
-    } finally {
-        genBtn.disabled = false;
-        spinner.classList.add("hidden");
-        setUpdateBtnState(!!currentDiagramCode);
-        if (!statusText.classList.contains("text-red-500")) {
-            statusText.innerText = isUpdate ? "Design refined." : "Design ready.";
-        }
-    }
+  } catch (err) {
+    console.error(err);
+    setStatus("Failed — check backend.", true);
+  } finally {
+    setLoading(false, isRefine);
+    setRefineEnabled(!!state.diagram);
+  }
 }
 
 async function renderMermaid(code) {
-    const diagArea = document.getElementById("diagram");
-    try {
-        diagArea.innerHTML = "";
-        const mermaidId = "graph-" + Date.now();
-        const { svg } = await mermaid.render(mermaidId, code);
-        diagArea.innerHTML = svg;
-    } catch (err) {
-        diagArea.innerHTML = `<div class="p-4 bg-amber-50 rounded border border-amber-200">
-            <p class='text-amber-700 text-xs font-bold'>Render Error</p>
-            <code class='block mt-2 text-[10px] text-slate-500 break-all'>${code}</code>
-        </div>`;
-    }
+  const el = $("diagram");
+  el.innerHTML = "";
+  try {
+    const { svg } = await mermaid.render("g" + Date.now(), code);
+    el.innerHTML = svg;
+  } catch {
+    el.innerHTML = `<div class="p-3 bg-amber-50 border border-amber-200 rounded text-[10px]">
+      <p class="font-bold text-amber-700 mb-1">Render error</p>
+      <code class="text-slate-500 break-all">${code}</code>
+    </div>`;
+  }
 }
 
-function setUpdateBtnState(enabled) {
-    const btn = document.getElementById("update-btn");
-    if (!btn) return;
-    if (enabled) {
-        btn.disabled = false;
-        btn.classList.remove("opacity-50", "cursor-not-allowed");
-        btn.classList.add("hover:border-emerald-500", "hover:text-emerald-600");
-    } else {
-        btn.disabled = true;
-        btn.classList.add("opacity-50", "cursor-not-allowed");
-    }
+function setLoading(on, isRefine) {
+  $("gen-btn").disabled = on;
+  $("upd-btn").disabled = on;
+  $("status-bar").classList.toggle("hidden", !on);
+  if (on) $("status-text").textContent = isRefine ? "Applying changes..." : "Analyzing...";
+}
+
+function setStatus(msg, isError = false) {
+  const el = $("status-text");
+  el.textContent = msg;
+  el.className = isError ? "text-red-500" : "text-slate-400";
+  $("status-bar").classList.remove("hidden");
+  setTimeout(() => $("status-bar").classList.add("hidden"), 3000);
+}
+
+function setRefineEnabled(on) {
+  const btn = $("upd-btn");
+  btn.disabled = !on;
+  btn.classList.toggle("opacity-40", !on);
+  btn.classList.toggle("cursor-not-allowed", !on);
 }
 
 function resetState() {
-    if (confirm("Wipe current design and start fresh?")) {
-        currentDiagramCode = "";
-        cachedConstraints = null;
-        currentComponents = [];
-        localStorage.clear();
-        location.reload();
-    }
+  if (!confirm("Wipe current design and start fresh?")) return;
+  Object.values(LS).forEach(k => localStorage.removeItem(k));
+  location.reload();
 }
