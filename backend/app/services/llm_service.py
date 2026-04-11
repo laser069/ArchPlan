@@ -12,8 +12,10 @@ TYPE_MAP = {
 }
 REVERSE_TYPE_MAP = {v: k for k, v in TYPE_MAP.items()}
 
+# Updated MODELS to include Groq
 MODELS = {
-    "gemini": "gemini-flash-latest",
+    "gemini": "gemini-1.5-flash",
+    "groq": "llama-3.3-70b-versatile",
     "ollama": "qwen2.5-coder:7b-instruct-q4_0",
 }
 
@@ -22,7 +24,9 @@ def _extract_edges_from_diagram(diagram: str):
     if not diagram or "graph TD" not in diagram:
         return []
     edges = []
-    for part in diagram.replace("graph TD;", "").split(";"):
+    # Normalizing potential whitespace/newline differences
+    cleaned_diagram = diagram.replace("graph TD;", "").replace("graph TD", "")
+    for part in cleaned_diagram.split(";"):
         part = part.strip()
         if "-->" in part:
             a, b = part.split("-->", 1)
@@ -52,7 +56,7 @@ def _inflate(raw: dict) -> dict:
 
 async def generate_architecture(
     query: str,
-    provider: str = "gemini",
+    provider: str = "groq",  # Defaulting to Groq for speed and 70B reasoning
     constraints: Constraints = None,
     existing_diagram: str = None,
     existing_components: List[dict] = None,
@@ -74,30 +78,41 @@ async def generate_architecture(
             c_str += f" PATTERNS:{docs}"
         prompt = get_system_prompt(query, c_str)
 
-    provider_curr = provider
-    for attempt in range(2):
+    # Retry/Fallback Logic: Groq -> Gemini -> Ollama
+    # This ensures if you hit Groq's rate limit, you fall back to other free options
+    provider_chain = ["groq", "gemini", "ollama"]
+    
+    # Start the chain from the user's requested provider
+    if provider in provider_chain:
+        current_index = provider_chain.index(provider)
+        active_chain = provider_chain[current_index:]
+    else:
+        active_chain = [provider] + provider_chain
+
+    for provider_curr in active_chain:
         try:
-            model = MODELS[provider_curr]
-            print(f"[LLM] {provider_curr}/{model} attempt {attempt + 1}")
+            model = MODELS.get(provider_curr)
+            if not model: continue
+            
+            print(f"[LLM] {provider_curr}/{model} attempting...")
 
             raw, usage = await call_llm(provider_curr, model, prompt)
-            print(f"[tokens] in={usage['input']} out={usage['output']} total={usage['total']}")
+            print(f"[tokens] {provider_curr} in={usage['input']} out={usage['output']}")
 
             return GenerateResponse(**_inflate(raw))
+            
         except Exception as e:
-            print(f"[LLM] Error: {e}")
-            if provider_curr == "gemini":
-                provider_curr = "ollama"
-                continue
-            raise
+            print(f"[LLM] Error with {provider_curr}: {e}")
+            # Continue to next provider in the chain
+            continue
 
+    # Final Fallback if all providers fail
     return GenerateResponse(
         components=[
             Component(name="App", type="Service"),
             Component(name="DB", type="Database")
         ],
-        architecture="Fallback architecture.",
-        scaling="Standard scaling.",
+        architecture="All LLM providers are currently unavailable.",
+        scaling="N/A",
         diagram="graph TD; App-->DB;"
     )
-

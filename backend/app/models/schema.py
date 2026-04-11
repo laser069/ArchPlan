@@ -3,16 +3,17 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-VALID_PROVIDERS = Literal["gemini", "ollama"]
+# 1. Added "groq" to the allowed providers
+VALID_PROVIDERS = Literal["gemini", "ollama", "groq"]
 VALID_SCALE   = Literal["startup", "growth", "enterprise"]
 
 class Constraints(BaseModel):
-    model_config = {"extra": "ignore"}   # silently drops unknown keys from extractor
+    model_config = {"extra": "ignore"}
 
     budget_usd_month: Optional[int]  = None
-    team_size:        Optional[int]  = None
-    peak_rps:         Optional[int]  = None
-    cloud_provider:   str            = "AWS"
+    team_size:         Optional[int]  = None
+    peak_rps:          Optional[int]  = None
+    cloud_provider:   str             = "AWS"
     region:           Optional[str]  = None
     stack:      List[str] = Field(default_factory=list)
     avoid:      List[str] = Field(default_factory=list)
@@ -25,7 +26,8 @@ class Component(BaseModel):
 
 class GenerateRequest(BaseModel):
     query:    str
-    provider: VALID_PROVIDERS = "gemini"
+    # 2. Changed default provider to "groq" for better performance/speed balance
+    provider: VALID_PROVIDERS = "groq" 
     constraints:         Optional[Constraints]       = None
     existing_diagram:    Optional[str]               = None
     existing_components: Optional[List[Dict[str, Any]]] = None

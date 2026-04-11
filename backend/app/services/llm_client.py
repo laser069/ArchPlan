@@ -12,32 +12,48 @@ load_dotenv(find_dotenv())
 GEMINI_KEY = os.getenv("GOOGLE_API_KEY")
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
+from langchain_groq import ChatGroq
+
 async def call_llm(provider: str, model: str, prompt: str) -> tuple[dict, dict]:
-    """Call LLM (Gemini or Ollama) and return parsed JSON + token usage."""
-    llm = (
-        ChatGoogleGenerativeAI(
+    """Call LLM (Gemini, Ollama, or Groq) and return parsed JSON + token usage."""
+    
+    # Selecting the provider
+    if provider == "gemini":
+        llm = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=GEMINI_KEY,
             temperature=0.1,
             model_kwargs={"response_mime_type": "application/json"}
-        ) if provider == "gemini" else
-        ChatOllama(model=model, base_url=OLLAMA_URL, temperature=0.1, format="json")
-    )
+        )
+    elif provider == "groq":
+        llm = ChatGroq(
+            model_name=model, # e.g., "llama-3.3-70b-versatile"
+            groq_api_key=os.getenv("GROQ_API_KEY"),
+            temperature=0.1,
+            model_kwargs={"response_format": {"type": "json_object"}}
+        )
+    else:
+        llm = ChatOllama(
+            model=model, 
+            base_url=OLLAMA_URL, 
+            temperature=0.1, 
+            format="json"
+        )
 
+    # Execution logic (same as your original)
     prompt_template = ChatPromptTemplate.from_template("{input}")
     raw_msg = await (prompt_template | llm).ainvoke({"input": prompt})
 
+    # Parsing logic (same as your original)
     content = raw_msg.content
     if isinstance(content, str):
         cleaned_content = re.sub(r"^```json\s*|^```\s*|```\s*$", "", content.strip(), flags=re.MULTILINE).strip()
         try:
             parsed = json.loads(cleaned_content)
         except json.JSONDecodeError as e:
-            print(f"[DEBUG] JSON decode failed: {e}")
             try:
                 parsed = JsonOutputParser().parse(cleaned_content)
             except Exception as parse_error:
-                print(f"[DEBUG] JsonOutputParser failed: {parse_error}")
                 raise ValueError(f"Failed to parse LLM output: {cleaned_content[:200]}")
     elif isinstance(content, (dict, list)):
         parsed = content
@@ -54,7 +70,6 @@ async def call_llm(provider: str, model: str, prompt: str) -> tuple[dict, dict]:
     return parsed, usage
 
 def _extract_usage(provider: str, raw_msg) -> dict:
-    """Extract token counts from LLM response message object."""
     if provider == "gemini":
         u = getattr(raw_msg, "usage_metadata", None) or {}
         return {
@@ -62,7 +77,18 @@ def _extract_usage(provider: str, raw_msg) -> dict:
             "output": u.get("output_tokens", 0),
             "total":  u.get("total_tokens", 0),
         }
+    
+    if provider == "groq":
+        u = raw_msg.response_metadata.get("token_usage", {})
+        return {
+            "input":  u.get("prompt_tokens", 0),
+            "output": u.get("completion_tokens", 0),
+            "total":  u.get("total_tokens", 0),
+        }
+
+    # Ollama / Default
     meta = raw_msg.response_metadata or {}
     inp = meta.get("prompt_eval_count", 0) or meta.get("inputs", 0) or 0
     out = meta.get("eval_count", 0) or meta.get("outputs", 0) or 0
     return {"input": inp, "output": out, "total": inp + out}
+
