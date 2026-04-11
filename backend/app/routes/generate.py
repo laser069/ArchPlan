@@ -12,16 +12,19 @@ async def generate_endpoint(req: GenerateRequest):
     t0 = time.time()
     is_refine = bool(req.existing_diagram)
     
-    # 1. Determine the provider. 
-    # We default to "groq" for the best speed/reasoning balance on the free tier.
+    # 1. Determine the provider and model. 
+    # Pull 'provider' and 'model' directly from the request object.
     provider = getattr(req, "provider", "groq")
+    model = getattr(req, "model", None) # Dynamic model from frontend
     
-    print(f"\n--- {'Refining' if is_refine else 'Generating'} with {provider.upper()} | {req.query[:50]} ---")
+    log_model = model if model else "DEFAULT"
+    print(f"\n--- {'Refining' if is_refine else 'Generating'} with {provider.upper()} ({log_model}) ---")
+    print(f"Query: {req.query[:50]}...")
     
     try:
         # 2. Handle Constraint Logic
         if is_refine:
-            # If refining, use cached constraints or existing ones to maintain consistency
+            # If refining, use cached constraints to maintain consistency across iterations
             constraints_data = (req.cached_constraints or 
                                 (req.constraints.model_dump(exclude_none=True) if req.constraints else {}))
             constraints = Constraints(**constraints_data)
@@ -34,16 +37,18 @@ async def generate_endpoint(req: GenerateRequest):
             constraints = Constraints(**merged)
 
         # 3. Call the Service Layer
+        # Now passing the 'model' parameter to support dynamic LLM selection
         result = await generate_architecture(
             query=req.query,
             provider=provider,
+            model=model, # Pass dynamic selection here
             constraints=constraints,
             existing_diagram=req.existing_diagram,
             existing_components=req.existing_components,
             cached_constraints=req.cached_constraints,
         )
 
-        # 4. Attach constraints to the result so the frontend can cache them for refinement
+        # 4. Attach constraints to the result for frontend caching
         if not is_refine:
             result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
 

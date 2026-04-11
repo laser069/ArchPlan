@@ -13,10 +13,11 @@ TYPE_MAP = {
 REVERSE_TYPE_MAP = {v: k for k, v in TYPE_MAP.items()}
 
 # Updated MODELS to include Groq
-MODELS = {
+DEFAULT_MODELS = {
     "gemini": "gemini-1.5-flash",
     "groq": "llama-3.3-70b-versatile",
     "ollama": "qwen2.5-coder:7b-instruct-q4_0",
+    "openrouter": "meta-llama/llama-3.3-70b-instruct"
 }
 
 def _extract_edges_from_diagram(diagram: str):
@@ -56,7 +57,8 @@ def _inflate(raw: dict) -> dict:
 
 async def generate_architecture(
     query: str,
-    provider: str = "groq",  # Defaulting to Groq for speed and 70B reasoning
+    provider: str = "groq",
+    model: str = None,  # Dynamic model name from frontend
     constraints: Constraints = None,
     existing_diagram: str = None,
     existing_components: List[dict] = None,
@@ -65,6 +67,7 @@ async def generate_architecture(
     constraints = constraints or Constraints()
     c_str = json.dumps(constraints.model_dump(exclude_none=True))
 
+    # 1. Build Prompt (Refine vs New)
     if existing_diagram:
         nodes_str = json.dumps([
             [c["name"], REVERSE_TYPE_MAP.get(c["type"], "S")]
@@ -78,41 +81,52 @@ async def generate_architecture(
             c_str += f" PATTERNS:{docs}"
         prompt = get_system_prompt(query, c_str)
 
-    # Retry/Fallback Logic: Groq -> Gemini -> Ollama
-    # This ensures if you hit Groq's rate limit, you fall back to other free options
-    provider_chain = ["groq", "gemini", "ollama"]
+    # 2. Define the Provider Chain (Fallback Order)
+    provider_chain = ["groq", "openrouter", "gemini", "ollama"]
     
-    # Start the chain from the user's requested provider
     if provider in provider_chain:
         current_index = provider_chain.index(provider)
         active_chain = provider_chain[current_index:]
     else:
         active_chain = [provider] + provider_chain
 
-    for provider_curr in active_chain:
+    # 3. Execution Loop with Fallback
+    for i, provider_curr in enumerate(active_chain):
         try:
-            model = MODELS.get(provider_curr)
-            if not model: continue
+            # LOGIC: Use 'model' only for the first attempt in the chain.
+            # If the first attempt fails, fall back to the DEFAULT_MODELS for safety.
+            target_model = model if (i == 0 and model) else DEFAULT_MODELS.get(provider_curr)
             
-            print(f"[LLM] {provider_curr}/{model} attempting...")
+            if not target_model:
+                continue
+            
+            print(f"[LLM] {provider_curr}/{target_model} attempting...")
 
-            raw, usage = await call_llm(provider_curr, model, prompt)
+            raw, usage = await call_llm(provider_curr, target_model, prompt)
             print(f"[tokens] {provider_curr} in={usage['input']} out={usage['output']}")
 
-            return GenerateResponse(**_inflate(raw))
+            # Construct response and inject the constraints for caching
+            result = GenerateResponse(**_inflate(raw))
+            if not existing_diagram:
+                 result.constraints = constraints.model_dump(exclude_none=True)
+            
+            return result
             
         except Exception as e:
             print(f"[LLM] Error with {provider_curr}: {e}")
-            # Continue to next provider in the chain
+            # Continue to next provider in the chain using their default models
             continue
 
-    # Final Fallback if all providers fail
+    # 4. Final Fallback
     return GenerateResponse(
         components=[
             Component(name="App", type="Service"),
             Component(name="DB", type="Database")
         ],
-        architecture="All LLM providers are currently unavailable.",
+        architecture="All LLM providers are currently unavailable or the specific model requested failed.",
         scaling="N/A",
         diagram="graph TD; App-->DB;"
     )
+
+
+

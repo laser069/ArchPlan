@@ -1,10 +1,9 @@
-# schema.py
 from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-# 1. Added "groq" to the allowed providers
-VALID_PROVIDERS = Literal["gemini", "ollama", "groq"]
+# 1. Added "openrouter" to the allowed providers
+VALID_PROVIDERS = Literal["gemini", "ollama", "groq", "openrouter"]
 VALID_SCALE   = Literal["startup", "growth", "enterprise"]
 
 class Constraints(BaseModel):
@@ -26,8 +25,12 @@ class Component(BaseModel):
 
 class GenerateRequest(BaseModel):
     query:    str
-    # 2. Changed default provider to "groq" for better performance/speed balance
-    provider: VALID_PROVIDERS = "groq" 
+    provider: VALID_PROVIDERS = "groq"
+    
+    # 2. Added model field for dynamic selection
+    # This allows the frontend to pass strings like "anthropic/claude-3.5-sonnet"
+    model:    Optional[str] = None 
+    
     constraints:         Optional[Constraints]       = None
     existing_diagram:    Optional[str]               = None
     existing_components: Optional[List[Dict[str, Any]]] = None
