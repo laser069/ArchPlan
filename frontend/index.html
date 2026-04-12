@@ -2,26 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ArchPlan | AI Architect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArchPlan | AI System Architecture Designer</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="index.css">
   <style>
-    body { font-family: system-ui, sans-serif; background: #f8f8fa; }
-    .mono { font-family: ui-monospace, monospace; }
-    .refining { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
-    #diagram svg { max-width: 100%; height: auto; transition: all 0.3s ease; }
+    .mono { font-family: 'Fira Code', 'Courier New', monospace; }
   </style>
   <script>mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });</script>
 </head>
 <body class="text-slate-900">
 
 <header class="border-b border-slate-200 bg-white sticky top-0 z-10 shadow-sm">
-  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4">
-    <h1 class="text-base font-bold tracking-tight text-indigo-600">ArchPlan</h1>
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+    <h1 class="text-xl font-bold tracking-tight text-indigo-600">ArchPlan</h1>
     
-    <div class="flex items-center gap-2 border-l pl-4 border-slate-200">
+    <div class="flex items-center gap-3 border-l pl-4 border-slate-200">
       <select id="provider-select"
-        class="mono text-[10px] border border-slate-200 rounded px-2 py-1 text-slate-500 bg-slate-50 uppercase outline-none focus:border-indigo-400 cursor-pointer">
+        class="mono text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-600 bg-white uppercase outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 cursor-pointer transition-all">
         <option value="groq">Groq</option>
         <option value="openrouter">OpenRouter</option>
         <option value="gemini">Gemini</option>
@@ -30,60 +29,60 @@
 
       <input id="model-input" type="text" 
         placeholder="Model ID (e.g. llama-3.3-70b)" 
-        class="mono text-[10px] border border-slate-200 rounded px-2 py-1 text-slate-400 bg-white outline-none focus:border-indigo-400 w-48 shadow-inner" />
+        class="mono text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-600 bg-white outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 w-56 transition-all" />
     </div>
 
-    <div id="status-bar" class="hidden ml-auto flex items-center gap-2 text-xs text-slate-400">
-      <svg id="spinner" class="animate-spin h-3 w-3 text-indigo-500" viewBox="0 0 24 24" fill="none">
+    <div id="status-bar" class="hidden ml-auto flex items-center gap-3 text-sm text-slate-500">
+      <svg id="spinner" class="animate-spin h-4 w-4 text-indigo-500" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
         <path fill="currentColor" class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
       </svg>
-      <span id="status-text">Thinking...</span>
+      <span id="status-text" class="font-medium">Processing...</span>
     </div>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto p-6 space-y-4">
-  <div class="bg-white rounded-xl border border-slate-200 overflow-hidden focus-within:border-indigo-400 transition-colors shadow-sm">
-    <textarea id="query" rows="3" placeholder="Describe your system..."
-      class="w-full p-4 text-sm text-slate-700 border-none focus:ring-0 resize-none"></textarea>
-    <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center gap-2">
-      <button id="gen-btn" onclick="generate(false)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg font-medium transition-all active:scale-95">Generate</button>
+<main class="max-w-7xl mx-auto p-6 space-y-5">
+  <div class="card-container">
+    <textarea id="query" rows="3" placeholder="Describe your system architecture requirements..."
+      class="w-full p-5 text-sm text-slate-700 border-none focus:ring-0 resize-none placeholder-slate-400 placeholder-opacity-70"></textarea>
+    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+      <button id="gen-btn" onclick="generate(false)" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-5 py-2 rounded-lg font-semibold transition-all active:scale-95">Generate Architecture</button>
       <button id="upd-btn" onclick="generate(true)" disabled
-        class="opacity-40 cursor-not-allowed border border-slate-200 text-slate-500 text-sm px-4 py-1.5 rounded-lg font-medium bg-white hover:bg-slate-50 transition-all">Refine</button>
-      <button onclick="resetState()" class="ml-auto text-[10px] text-slate-400 hover:text-red-500 font-bold uppercase tracking-wider">Reset Workspace</button>
+        class="opacity-40 cursor-not-allowed border border-slate-300 text-slate-600 text-sm px-5 py-2 rounded-lg font-medium bg-white hover:bg-slate-50 transition-all">Refine Design</button>
+      <button onclick="resetState()" class="ml-auto text-xs text-slate-400 hover:text-red-500 font-bold uppercase tracking-widest">Reset Workspace</button>
     </div>
   </div>
 
-  <div class="grid lg:grid-cols-4 gap-4">
-    <div class="space-y-4">
-      <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-        <p class="mono text-[10px] text-slate-400 uppercase tracking-widest mb-3">Detected Components</p>
-        <ul id="components" class="space-y-1.5">
-          <li class="text-[11px] text-slate-300 italic">No components yet...</li>
+  <div class="grid lg:grid-cols-4 gap-5">
+    <div class="space-y-5">
+      <div class="card-container p-5">
+        <span class="card-label">Detected Components</span>
+        <ul id="components" class="space-y-2.5">
+          <li class="text-sm text-slate-400 italic">No components detected yet...</li>
         </ul>
       </div>
-      <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-4 shadow-sm">
+      <div class="card-container p-5 space-y-5">
         <div>
-          <p class="mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">Architecture Rationale</p>
-          <p id="architecture" class="text-[12px] text-slate-400 leading-relaxed italic">Awaiting design logic...</p>
+          <span class="card-label">Architecture Rationale</span>
+          <p id="architecture" class="text-sm text-slate-600 leading-relaxed card-content empty">Awaiting design logic...</p>
         </div>
-        <hr class="border-slate-100">
+        <hr>
         <div>
-          <p class="mono text-[10px] text-slate-400 uppercase tracking-widest mb-1">Scaling Strategy</p>
-          <p id="scaling" class="text-[12px] text-slate-400 leading-relaxed italic">Awaiting scaling plan...</p>
+          <span class="card-label">Scaling Strategy</span>
+          <p id="scaling" class="text-sm text-slate-600 leading-relaxed card-content empty">Awaiting scaling plan...</p>
         </div>
       </div>
     </div>
 
     <div class="lg:col-span-3">
-      <div id="diagram-container" class="bg-white rounded-xl border border-slate-200 p-4 min-h-[600px] flex flex-col transition-all shadow-sm">
-        <div class="flex justify-between items-center mb-3">
-            <p class="mono text-[10px] text-slate-400 uppercase tracking-widest">System Diagram (Mermaid)</p>
-            <button onclick="copyDiagram()" class="text-[10px] text-indigo-500 font-bold uppercase hover:underline">Copy Code</button>
+      <div id="diagram-container" class="bg-white rounded-xl border border-slate-200 p-5 min-h-[600px] flex flex-col transition-all shadow-sm">
+        <div class="flex justify-between items-center mb-4">
+            <span class="card-label">System Architecture Diagram</span>
+            <button onclick="copyDiagram()" class="text-xs text-indigo-600 font-bold uppercase hover:text-indigo-700 hover:underline transition-all">Copy Diagram Code</button>
         </div>
         <div id="diagram" class="flex-1 flex justify-center items-center bg-slate-50 rounded-lg border border-slate-100 overflow-auto p-4 transition-colors">
-          <p class="text-xs text-slate-300">Submit a prompt to generate a preview.</p>
+          <p class="text-sm text-slate-400">Submit a prompt to generate a preview.</p>
         </div>
       </div>
     </div>
