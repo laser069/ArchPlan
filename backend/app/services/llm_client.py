@@ -39,7 +39,6 @@ async def call_llm(provider: str, model: str, prompt: str) -> tuple[dict, dict]:
             openai_api_key=OPENROUTER_KEY,
             openai_api_base="https://openrouter.ai/api/v1",
             temperature=0.1,
-            model_kwargs={"response_format": {"type": "json_object"}},
             # OpenRouter specific headers (optional but recommended)
             default_headers={
                 "HTTP-Referer": "https://localhost:3000", 
@@ -60,13 +59,21 @@ async def call_llm(provider: str, model: str, prompt: str) -> tuple[dict, dict]:
     # Parsing Logic
     content = raw_msg.content
     if isinstance(content, str):
+        # Remove markdown code blocks
         cleaned_content = re.sub(r"^```json\s*|^```\s*|```\s*$", "", content.strip(), flags=re.MULTILINE).strip()
+        
+        # Try to extract JSON object from the content (handles cases where explanation text is present)
         try:
             parsed = json.loads(cleaned_content)
         except json.JSONDecodeError:
-            try:
-                parsed = JsonOutputParser().parse(cleaned_content)
-            except Exception:
+            # If direct parse fails, try to extract JSON from the text
+            json_match = re.search(r'\{.*\}', cleaned_content, re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group(0))
+                except json.JSONDecodeError:
+                    raise ValueError(f"Failed to parse LLM output: {cleaned_content[:200]}")
+            else:
                 raise ValueError(f"Failed to parse LLM output: {cleaned_content[:200]}")
     else:
         parsed = content
