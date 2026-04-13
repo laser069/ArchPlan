@@ -107,22 +107,47 @@ def extract_json_str(text: str) -> str:
 
 
 async def call_model(prompt: str) -> str:
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
-            OLLAMA_URL,
-            json={
-                "model": MODEL_NAME,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.0,   # zero temp — extraction must be deterministic
-                    "num_predict": 300,   # constraints JSON is always short
-                    "top_p": 1.0,
-                }
-            }
-        )
-        response.raise_for_status()
-        return response.json().get("response", "").strip()
+    """Call Ollama model with better error handling and retries."""
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:  # Reduced timeout
+                response = await client.post(
+                    OLLAMA_URL,
+                    json={
+                        "model": MODEL_NAME,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.0,   # zero temp — extraction must be deterministic
+                            "num_predict": 300,   # constraints JSON is always short
+                            "top_p": 1.0,
+                        }
+                    }
+                )
+                response.raise_for_status()  # Raise exception for HTTP errors
+                return response.json().get("response", "").strip()
+        except httpx.TimeoutException:
+            if attempt < max_retries:
+                print(f"[Extractor] Timeout, retrying ({attempt + 1}/{max_retries})...")
+                await asyncio.sleep(1)  # Brief pause before retry
+                continue
+            print("[Extractor] Timeout after retries, falling back to empty constraints")
+            return "{}"
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 500:
+                if attempt < max_retries:
+                    print(f"[Extractor] Server error, retrying ({attempt + 1}/{max_retries})...")
+                    await asyncio.sleep(2)  # Longer pause for server errors
+                    continue
+                print("[Extractor] Server error after retries, falling back to empty constraints")
+                return "{}"
+            else:
+                print(f"[Extractor] HTTP error {e.response.status_code}, falling back to empty constraints")
+                return "{}"
+        except Exception as e:
+            print(f"[Extractor] Unexpected error: {e}, falling back to empty constraints")
+            return "{}"
 
 
 # ============================================================
@@ -210,16 +235,28 @@ async def extract_constraints(raw_query: str) -> dict:
 
     try:
         raw_output = await call_model(prompt)
+        if not raw_output or raw_output.strip() == "":
+            print("[Extractor] Empty response from model, using no constraints")
+            return {}
+
         print(f"[Extractor] Raw output: {raw_output[:200]}")
 
         cleaned = clean_output(raw_output)
-        json_str = extract_json_str(cleaned)
-        data = json.loads(json_str)
+        if not cleaned:
+            print("[Extractor] No content after cleaning, using no constraints")
+            return {}
+
+        try:
+            json_str = extract_json_str(cleaned)
+            data = json.loads(json_str)
+        except (ValueError, json.JSONDecodeError) as e:
+            print(f"[Extractor] JSON parsing failed: {e}, using no constraints")
+            return {}
 
         result = sanitize_extracted(data)
         print(f"[Extractor] Extracted: {result}")
         return result
 
     except Exception as e:
-        print(f"[Extractor] Failed to extract constraints: {e} — using no constraints")
+        print(f"[Extractor] Unexpected error: {e}, using no constraints")
         return {}
