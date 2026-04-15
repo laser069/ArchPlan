@@ -1,570 +1,165 @@
 /* ============================================
-   ARCHPLAN - COMPREHENSIVE STYLING
+   ARCHPLAN - INDUSTRIAL MONOCHROME (v2.0)
    ============================================ */
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Fira+Code:wght@400;500&display=swap');
+
 :root {
-  --primary-color: #4f46e5;
-  --primary-dark: #4338ca;
-  --primary-light: #6366f1;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --slate-50: #f8fafc;
-  --slate-100: #f1f5f9;
-  --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1;
-  --slate-400: #94a3b8;
-  --slate-500: #64748b;
-  --slate-600: #475569;
-  --slate-700: #334155;
-  --slate-800: #1e293b;
-  --slate-900: #0f172a;
+    --bg-main: #FAFAFA;
+    --bg-card: #FFFFFF;
+    --border-hairline: rgba(0, 0, 0, 0.1);
+    --border-strong: #111111;
+    --text-main: #111111;
+    --text-muted: #A1A1AA;
+    --accent-red: #EF4444;
 }
 
+/* Base Reset */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', system-ui, sans-serif;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  color: var(--slate-900);
-  line-height: 1.6;
-  letter-spacing: 0.3px;
-  min-height: 100vh;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
 }
 
 /* Typography */
 .mono {
-  font-family: 'Fira Code', 'Courier New', monospace;
-  letter-spacing: 0.5px;
+    font-family: 'Fira Code', monospace;
+    letter-spacing: -0.02em;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  letter-spacing: -0.5px;
-}
-
-/* ============================================
-   HEADER STYLING
-   ============================================ */
-
+/* Layout Elements */
 header {
-  background: linear-gradient(to right, #ffffff 0%, #fafbfc 100%);
-  border-bottom: 1px solid var(--slate-200);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  backdrop-filter: blur(8px);
-  background-clip: padding-box;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-hairline);
 }
 
-header h1 {
-  font-size: 18px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -1px;
+/* Sharp Corners - The "Industrial" Rule */
+textarea, 
+input, 
+select, 
+button, 
+div, 
+ul, 
+li {
+    border-radius: 0 !important;
 }
 
-/* ============================================
-   FORM CONTROLS
-   ============================================ */
-
-select, input[type="text"] {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  background-color: #ffffff;
-  font-size: 11px;
-}
-
-select:hover, input[type="text"]:hover {
-  border-color: var(--slate-300);
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
-}
-
-select:focus, input[type="text"]:focus {
-  border-color: var(--primary-light);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  outline: none;
-}
-
-select {
-  background-image: linear-gradient(to right, white 0%, white 100%);
-  cursor: pointer;
-}
-
-/* ============================================
-   TEXTAREA STYLING
-   ============================================ */
-
+/* Form Controls */
 textarea {
-  transition: all 0.3s ease;
-  resize: vertical;
-  min-height: 100px;
-  font-size: 14px;
-  line-height: 1.6;
-  letter-spacing: 0.3px;
-}
-
-textarea:hover {
-  background-color: #fafbfc;
+    border: 1px solid var(--border-hairline);
+    transition: border-color 0.2s ease;
 }
 
 textarea:focus {
-  background-color: #ffffff;
-  border: none;
-  outline: none;
+    border-color: var(--border-strong);
+    outline: none;
 }
 
-/* ============================================
-   BUTTON STYLING
-   ============================================ */
+select, input[type="text"] {
+    border: none;
+    border-bottom: 1px solid var(--border-hairline);
+    padding-bottom: 2px;
+}
 
+select:focus, input[type="text"]:focus {
+    border-bottom-color: var(--border-strong);
+    outline: none;
+}
+
+/* Buttons */
 button {
-  font-weight: 500;
-  letter-spacing: 0.5px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  user-select: none;
-  border-radius: 8px;
-  font-size: 13px;
-  padding: 8px 16px;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    font-size: 10px;
+    transition: all 0.2s ease;
 }
 
 #gen-btn {
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
-  color: white;
-  border: none;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    background-color: var(--border-strong);
+    color: white;
+    border: 1px solid var(--border-strong);
 }
 
 #gen-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
-  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
-  transform: translateY(-1px);
-}
-
-#gen-btn:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-#gen-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+    background-color: #333;
 }
 
 #upd-btn {
-  background-color: #ffffff;
-  color: var(--slate-700);
-  border: 1.5px solid var(--slate-300);
-  font-weight: 500;
+    background-color: transparent;
+    border: 1px solid var(--border-hairline);
+    color: var(--text-main);
 }
 
 #upd-btn:hover:not(:disabled) {
-  background-color: var(--slate-50);
-  border-color: var(--primary-light);
-  color: var(--primary-color);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
-}
-
-#upd-btn:active:not(:disabled) {
-  transform: scale(0.95);
+    border-color: var(--border-strong);
 }
 
 #upd-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.2;
+    cursor: not-allowed;
 }
 
-button[onclick*="resetState"] {
-  background: none;
-  border: none;
-  color: var(--slate-400);
-  font-size: 11px;
-  padding: 4px 8px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-button[onclick*="resetState"]:hover {
-  color: var(--danger-color);
-  font-weight: 700;
-}
-
-button[onclick*="copyDiagram"] {
-  background: none;
-  border: none;
-  color: var(--primary-light);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 0 4px;
-}
-
-button[onclick*="copyDiagram"]:hover {
-  color: var(--primary-color);
-  text-decoration: underline;
-}
-
-/* ============================================
-   CARD STYLING
-   ============================================ */
-
-.card-container {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid var(--slate-200);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-}
-
-.card-container:hover {
-  border-color: var(--slate-300);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-}
-
+/* Labels */
 .card-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--slate-400);
-  font-weight: 700;
-  margin-bottom: 12px;
-  display: block;
+    display: block;
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
 }
 
-.card-content {
-  color: var(--slate-700);
-  font-size: 13px;
-  line-height: 1.7;
+/* Diagram Area */
+#diagram {
+    filter: saturate(0) contrast(1.1); /* Force grayscale on Mermaid diagrams */
 }
-
-.card-content.empty {
-  color: var(--slate-400);
-  font-style: italic;
-  font-size: 12px;
-}
-
-/* ============================================
-   DIAGRAM AREA
-   ============================================ */
 
 #diagram-container {
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1.5px solid var(--slate-200);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.02);
 }
 
-#diagram-container.refining {
-  border-color: var(--primary-light) !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
-  background: linear-gradient(135deg, #ffffff 0%, rgba(79, 70, 229, 0.02) 100%);
-}
-
-#diagram {
-  background-color: var(--slate-50);
-  border-radius: 8px;
-  border: 1px solid var(--slate-100);
-  overflow: auto;
-  transition: all 0.3s ease;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-#diagram svg {
-  max-width: 100%;
-  height: auto;
-  transition: all 0.3s ease;
-}
-
-#diagram.bg-white {
-  background-color: #ffffff;
-  border-color: var(--slate-200);
-}
-
-/* Remove default mermaid dark theme */
-#diagram svg text {
-  fill: var(--slate-700) !important;
-}
-
-/* ============================================
-   STATUS BAR
-   ============================================ */
-
-#status-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--slate-400);
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-#status-bar.hidden {
-  display: none;
-}
-
-#spinner {
-  width: 16px;
-  height: 16px;
-  color: var(--primary-light);
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* ============================================
-   COMPONENT LIST
-   ============================================ */
-
-#components {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
+/* Component List Items */
 #components li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
-  border: 1px solid var(--slate-100);
-  border-radius: 8px;
-  font-size: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-#components li:hover {
-  background: linear-gradient(135deg, #fafbfc 0%, #f1f5f9 100%);
-  border-color: var(--primary-light);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.1);
-  transform: translateX(2px);
-}
-
-#components li span:first-child {
-  font-weight: 500;
-  color: var(--slate-700);
-  flex: 1;
+    border-bottom: 1px solid var(--border-hairline);
+    padding: 0.75rem 0;
 }
 
 #components li span:last-child {
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-  color: var(--primary-color);
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border: 1px solid rgba(79, 70, 229, 0.2);
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ============================================
-   ARCHITECTURE & SCALING SECTIONS
-   ============================================ */
-
-#architecture, #scaling {
-  color: var(--slate-600);
-  font-size: 13px;
-  line-height: 1.8;
-  letter-spacing: 0.2px;
-}
-
-#architecture.italic, #scaling.italic,
-#architecture.text-slate-400, #scaling.text-slate-400 {
-  color: var(--slate-400);
-  font-style: italic;
-}
-
-hr {
-  border: none;
-  border-top: 1px solid var(--slate-100);
-  margin: 16px 0;
-}
-
-/* ============================================
-   MAIN LAYOUT
-   ============================================ */
-
-main {
-  animation: fadeIn 0.6s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ============================================
-   RESPONSIVE DESIGN
-   ============================================ */
-
-@media (max-width: 1024px) {
-  header .max-w-7xl {
-    flex-wrap: wrap;
-  }
-
-  .grid {
-    gap: 16px;
-  }
-
-  #diagram-container {
-    min-height: 400px;
-  }
-}
-
-@media (max-width: 768px) {
-  body {
-    font-size: 13px;
-  }
-
-  header h1 {
-    font-size: 16px;
-  }
-
-  button {
-    font-size: 12px;
-    padding: 6px 12px;
-  }
-
-  .card-label {
+    font-family: 'Fira Code', monospace;
     font-size: 9px;
-  }
-
-  #diagram-container {
-    min-height: 300px;
-  }
+    background: #F1F1F1;
+    padding: 2px 6px;
+    color: #666;
 }
 
-@media (max-width: 640px) {
-  main {
-    padding: 16px;
-  }
-
-  header {
-    padding: 12px 16px !important;
-  }
-
-  select, input[type="text"] {
-    font-size: 10px;
-    padding: 4px 8px !important;
-  }
-
-  button {
-    font-size: 11px;
-    padding: 6px 10px;
-  }
-
-  #diagram {
-    padding: 12px !important;
-  }
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
 }
 
-/* ============================================
-   UTILITY CLASSES
-   ============================================ */
-
-.focus-visible:focus-visible {
-  outline: 2px solid var(--primary-light);
-  outline-offset: 2px;
+::-webkit-scrollbar-track {
+    background: transparent;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
 }
 
-/* ============================================
-   ACCESSIBILITY
-   ============================================ */
-
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  body {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: #f1f5f9;
-  }
-
-  header {
-    background: linear-gradient(to right, #1e293b 0%, #334155 100%);
-    border-bottom-color: #334155;
-  }
-
-  .card-container {
-    background: #1e293b;
-    border-color: #334155;
-  }
-
-  .card-container:hover {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  }
-
-  textarea, select, input[type="text"] {
-    background-color: #334155;
-    color: #f1f5f9;
-    border-color: #475569;
-  }
-
-  #diagram {
-    background-color: #334155;
-    border-color: #475569;
-  }
-
-  #diagram.bg-white {
-    background-color: #1e293b;
-    border-color: #475569;
-  }
+/* Responsive Grid Adjustments */
+@media (max-width: 1024px) {
+    main {
+        grid-template-columns: 1fr;
+    }
 }
