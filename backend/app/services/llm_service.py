@@ -4,6 +4,10 @@ from app.models.schema import GenerateResponse, Constraints, Component
 from app.rag.retriever import get_relevant_docs
 from app.services.prompts import get_system_prompt, get_refine_prompt
 from app.services.llm_client import call_llm
+from collections import Counter
+
+HUB_TYPES = {"M", "C", "Q"}
+HUB_FAN_THRESHOLD = 3
 
 TYPE_MAP = {
     "S": "Service", "G": "Gateway", "Q": "Queue", "C": "Cache", "R": "Storage",
@@ -35,25 +39,73 @@ def _extract_edges_from_diagram(diagram: str):
     return edges
 
 def _inflate(raw: dict) -> dict:
-    """Convert compact raw output into the frontend schema."""
     nodes = raw.get("n", [])
     edges = raw.get("e", [])
 
-    components = [
-        {"name": n, "type": TYPE_MAP.get(t, "Service")}
-        for n, t in nodes
-    ]
-
+    components = [{"name": n, "type": TYPE_MAP.get(t, "Service")} for n, t in nodes]
     id_of = {n: n.replace(" ", "_") for n, _ in nodes}
-    edge_strs = "; ".join(f'{id_of.get(a, a)}-->{id_of.get(b, b)}' for a, b in edges)
-    diagram = f"graph TD; {edge_strs}"
+    type_of = {n: t for n, t in nodes}
+
+    tiers = {
+        "Entry":         ["L", "G", "N", "X", "P"],
+        "Logic":         ["S", "W", "A"],
+        "Data":          ["D", "R", "C", "E", "Q"],
+        "Observability": ["M"],
+    }
+    # Reverse lookup: type_char → tier name
+    char_to_tier = {c: tier for tier, chars in tiers.items() for c in chars}
+
+    # --- Hub collapsing ---
+    # Count how many distinct sources feed into each node
+    in_degree = Counter(b for _, b in edges if b in id_of)
+
+    # Nodes that qualify as hubs: correct type + heavily connected
+    hub_names = {
+        n for n, t in nodes
+        if t in HUB_TYPES and in_degree.get(n, 0) > HUB_FAN_THRESHOLD
+    }
+
+    # Entry-tier type chars — only these are allowed to connect to a hub
+    entry_chars = set(tiers["Entry"])
+
+    filtered_edges = []
+    for a, b in edges:
+        if a not in id_of or b not in id_of:
+            continue
+        if b in hub_names:
+            # Keep edge only if source is an Entry-tier node (Gateway, LB, etc.)
+            if type_of.get(a, "") in entry_chars:
+                filtered_edges.append([a, b])
+            # All other fan-out edges to this hub are dropped
+        else:
+            filtered_edges.append([a, b])
+
+    # --- Mermaid build ---
+    lines = ["graph TD"]
+
+    for tier_name, types in tiers.items():
+        tier_nodes = [n for n, t in nodes if t in types]
+        if tier_nodes:
+            lines.append(f"  subgraph {tier_name}")
+            for node_name in tier_nodes:
+                lines.append(f"    {id_of[node_name]}[{node_name}]")
+            lines.append("  end")
+
+    for a, b in filtered_edges:
+        lines.append(f"  {id_of[a]} --> {id_of[b]}")
+
+    # Annotate collapsed hubs so no information is silently lost
+    if hub_names:
+        hub_label = " | ".join(sorted(hub_names))
+        lines.append(f"  note[\"Shared by all services: {hub_label}\"]")
 
     return {
         "components": components,
-        "diagram": diagram,
+        "diagram": "\n".join(lines),
         "architecture": raw.get("a", ""),
         "scaling": raw.get("s", ""),
     }
+
 
 async def generate_architecture(
     query: str,
