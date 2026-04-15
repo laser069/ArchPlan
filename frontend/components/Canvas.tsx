@@ -36,9 +36,10 @@ export default function Canvas({ diagram }: { diagram: string }) {
             // Force the SVG to be responsive via DOM manipulation
             const svgElement = containerRef.current.querySelector('svg');
             if (svgElement) {
-              svgElement.style.maxWidth = '100%';
-              svgElement.style.height = 'auto';
+              svgElement.removeAttribute('width');
+              svgElement.removeAttribute('height');
               svgElement.style.width = '100%';
+              svgElement.style.height = 'auto';
             }
           }
         } catch (e) {
