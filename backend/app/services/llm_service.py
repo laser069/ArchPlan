@@ -6,8 +6,9 @@ from app.services.prompts import get_system_prompt, get_refine_prompt
 from app.services.llm_client import call_llm
 from collections import Counter
 
+# Configuration
 HUB_TYPES = {"M", "C", "Q"}
-HUB_FAN_THRESHOLD = 3
+HUB_FAN_THRESHOLD = 4 # Increased slightly to avoid over-collapsing
 
 TYPE_MAP = {
     "S": "Service", "G": "Gateway", "Q": "Queue", "C": "Cache", "R": "Storage",
@@ -16,7 +17,6 @@ TYPE_MAP = {
 }
 REVERSE_TYPE_MAP = {v: k for k, v in TYPE_MAP.items()}
 
-# Updated MODELS to include Groq
 DEFAULT_MODELS = {
     "gemini": "gemini-1.5-flash",
     "groq": "llama-3.3-70b-versatile",
@@ -25,24 +25,37 @@ DEFAULT_MODELS = {
 }
 
 def _extract_edges_from_diagram(diagram: str):
-    """Extract edge pairs from Mermaid graph TD format."""
-    if not diagram or "graph TD" not in diagram:
-        return []
+    """
+    Surgical extraction of edges. 
+    Crucial: It must handle subgraphs and notes without getting confused.
+    """
+    if not diagram: return []
     edges = []
-    # Normalizing potential whitespace/newline differences
-    cleaned_diagram = diagram.replace("graph TD;", "").replace("graph TD", "")
-    for part in cleaned_diagram.split(";"):
-        part = part.strip()
-        if "-->" in part:
-            a, b = part.split("-->", 1)
-            edges.append([a.strip().replace("_", " "), b.strip().replace("_", " ")])
+    # Regex-like manual search for --> while ignoring 'note' lines
+    for line in diagram.split("\n"):
+        line = line.strip()
+        if "-->" in line and "note[" not in line:
+            # Handle potential Mermaid syntax: NodeA --> NodeB
+            parts = line.split("-->")
+            if len(parts) == 2:
+                # Remove Mermaid brackets/IDs: API[Api Gateway] -> API
+                a = parts[0].split("[")[0].strip().replace("_", " ")
+                b = parts[1].split("[")[0].strip().replace("_", " ")
+                edges.append([a, b])
     return edges
 
 def _inflate(raw: dict) -> dict:
+    """
+    Converts raw LLM JSON into a rich UI response.
+    Ensures 'n' and 'e' are preserved for future refinement loops.
+    """
     nodes = raw.get("n", [])
     edges = raw.get("e", [])
 
+    # Map raw nodes to Component objects
     components = [{"name": n, "type": TYPE_MAP.get(t, "Service")} for n, t in nodes]
+    
+    # Internal mapping for Mermaid IDs
     id_of = {n: n.replace(" ", "_") for n, _ in nodes}
     type_of = {n: t for n, t in nodes}
 
@@ -52,37 +65,18 @@ def _inflate(raw: dict) -> dict:
         "Data":          ["D", "R", "C", "E", "Q"],
         "Observability": ["M"],
     }
-    # Reverse lookup: type_char → tier name
-    char_to_tier = {c: tier for tier, chars in tiers.items() for c in chars}
 
-    # --- Hub collapsing ---
-    # Count how many distinct sources feed into each node
-    in_degree = Counter(b for _, b in edges if b in id_of)
-
-    # Nodes that qualify as hubs: correct type + heavily connected
+    # --- Hub Collapsing Logic (For Visualization Only) ---
+    in_degree = Counter(b for _, b in edges)
     hub_names = {
-        n for n, t in nodes
+        n for n, t in nodes 
         if t in HUB_TYPES and in_degree.get(n, 0) > HUB_FAN_THRESHOLD
     }
-
-    # Entry-tier type chars — only these are allowed to connect to a hub
+    
     entry_chars = set(tiers["Entry"])
-
-    filtered_edges = []
-    for a, b in edges:
-        if a not in id_of or b not in id_of:
-            continue
-        if b in hub_names:
-            # Keep edge only if source is an Entry-tier node (Gateway, LB, etc.)
-            if type_of.get(a, "") in entry_chars:
-                filtered_edges.append([a, b])
-            # All other fan-out edges to this hub are dropped
-        else:
-            filtered_edges.append([a, b])
-
-    # --- Mermaid build ---
+    
+    # Generate the Mermaid String
     lines = ["graph TD"]
-
     for tier_name, types in tiers.items():
         tier_nodes = [n for n, t in nodes if t in types]
         if tier_nodes:
@@ -91,94 +85,96 @@ def _inflate(raw: dict) -> dict:
                 lines.append(f"    {id_of[node_name]}[{node_name}]")
             lines.append("  end")
 
-    for a, b in filtered_edges:
+    for a, b in edges:
+        # If it's a hub, only show connections from Entry tier to keep it clean
+        if b in hub_names and type_of.get(a) not in entry_chars:
+            continue
         lines.append(f"  {id_of[a]} --> {id_of[b]}")
 
-    # Annotate collapsed hubs so no information is silently lost
     if hub_names:
-        hub_label = " | ".join(sorted(hub_names))
-        lines.append(f"  note[\"Shared by all services: {hub_label}\"]")
+        lines.append(f"  note[\"Commonly used: {', '.join(hub_names)}\"]")
 
     return {
         "components": components,
         "diagram": "\n".join(lines),
         "architecture": raw.get("a", ""),
         "scaling": raw.get("s", ""),
+        # CRITICAL: We pass the RAW nodes and edges back for the next Refinement call
+        "raw_nodes": nodes, 
+        "raw_edges": edges
     }
-
 
 async def generate_architecture(
     query: str,
     provider: str = "groq",
-    model: str = None,  # Dynamic model name from frontend
+    model: str = None,
     constraints: Constraints = None,
     existing_diagram: str = None,
     existing_components: List[dict] = None,
     cached_constraints: dict = None,
 ) -> GenerateResponse:
-    constraints = constraints or Constraints()
-    c_str = json.dumps(constraints.model_dump(exclude_none=True))
-
-    # 1. Build Prompt (Refine vs New)
-    if existing_diagram:
-        nodes_str = json.dumps([
-            [c["name"], REVERSE_TYPE_MAP.get(c["type"], "S")]
-            for c in (existing_components or [])
-        ])
-        edges_str = json.dumps(_extract_edges_from_diagram(existing_diagram))
-        prompt = get_refine_prompt(query, nodes_str, edges_str, c_str)
-    else:
-        docs = get_relevant_docs(query, n_results=3)
-        if docs:
-            c_str += f" PATTERNS:{docs}"
-        prompt = get_system_prompt(query, c_str)
-
-    # 2. Define the Provider Chain (Fallback Order)
-    provider_chain = ["groq", "openrouter", "gemini", "ollama"]
     
-    if provider in provider_chain:
-        current_index = provider_chain.index(provider)
-        active_chain = provider_chain[current_index:]
+    # 1. Normalize Constraints
+    constraints_to_use = constraints or Constraints()
+    if cached_constraints:
+        # Merge or prioritize cached constraints to prevent "forgetting" budget/rps
+        constraints_to_use = Constraints(**{**cached_constraints, **constraints_to_use.model_dump(exclude_none=True)})
+    
+    c_str = json.dumps(constraints_to_use.model_dump(exclude_none=True))
+
+    # 2. Build Prompt
+    if existing_diagram and existing_components:
+        # REFINEMENT MODE
+        # Extract the node list in [[name, type_char]] format
+        nodes_data = [
+            [c["name"], REVERSE_TYPE_MAP.get(c["type"], "S")] 
+            for c in existing_components
+        ]
+        # Get edges. We use the diagram as the source of truth for current wiring.
+        edges_data = _extract_edges_from_diagram(existing_diagram)
+        
+        prompt = get_refine_prompt(
+            query=query, 
+            existing_nodes=json.dumps(nodes_data), 
+            existing_edges=json.dumps(edges_data), 
+            constraints_data=c_str
+        )
     else:
-        active_chain = [provider] + provider_chain
+        # NEW GENERATION MODE
+        docs = get_relevant_docs(query, n_results=3)
+        context_str = f" PATTERNS: {docs}" if docs else ""
+        prompt = get_system_prompt(query, c_str + context_str)
 
-    # 3. Execution Loop with Fallback
-    for i, provider_curr in enumerate(active_chain):
+    # 3. Provider Fallback Logic
+    active_chain = ["groq", "openrouter", "gemini", "ollama"]
+    if provider in active_chain:
+        # Reorder to start with the user's choice
+        active_chain.remove(provider)
+        active_chain.insert(0, provider)
+
+    for i, p_curr in enumerate(active_chain):
         try:
-            # LOGIC: Use 'model' only for the first attempt in the chain.
-            # If the first attempt fails, fall back to the DEFAULT_MODELS for safety.
-            target_model = model if (i == 0 and model) else DEFAULT_MODELS.get(provider_curr)
+            target_model = model if (i == 0 and model) else DEFAULT_MODELS.get(p_curr)
+            if not target_model: continue
             
-            if not target_model:
-                continue
+            raw, usage = await call_llm(p_curr, target_model, prompt)
             
-            print(f"[LLM] {provider_curr}/{target_model} attempting...")
+            # Inflate the data for the UI
+            inflated = _inflate(raw)
+            
+            # Construct the final response
+            resp = GenerateResponse(**inflated)
+            resp.constraints = constraints_to_use.model_dump(exclude_none=True)
+            return resp
 
-            raw, usage = await call_llm(provider_curr, target_model, prompt)
-            print(f"[tokens] {provider_curr} in={usage['input']} out={usage['output']}")
-
-            # Construct response and inject the constraints for caching
-            result = GenerateResponse(**_inflate(raw))
-            if not existing_diagram:
-                 result.constraints = constraints.model_dump(exclude_none=True)
-            
-            return result
-            
         except Exception as e:
-            print(f"[LLM] Error with {provider_curr}: {e}")
-            # Continue to next provider in the chain using their default models
+            print(f"[LLM ERROR] {p_curr} failed: {e}")
             continue
 
-    # 4. Final Fallback
+    # 4. Global Fallback if everything fails
     return GenerateResponse(
-        components=[
-            Component(name="App", type="Service"),
-            Component(name="DB", type="Database")
-        ],
-        architecture="All LLM providers are currently unavailable or the specific model requested failed.",
-        scaling="N/A",
-        diagram="graph TD; App-->DB;"
+        components=[{"name": "App", "type": "Service"}],
+        diagram="graph TD\n  App",
+        architecture="All providers failed.",
+        scaling="N/A"
     )
-
-
-
