@@ -1,170 +1,224 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import { ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
-export default function Canvas({ diagram }: { diagram: string }) {
+const DEFAULT_DIAGRAM = `
+graph LR
+    subgraph Client_Layer
+        User[User Interface]
+        CDN[Edge Network]
+    end
+
+    subgraph Logic_Layer
+        LB[Load Balancer]
+        API[API Gateway]
+        SVC[Core Services]
+    end
+
+    subgraph Data_Layer
+        DB[(Primary Database)]
+        Cache(Shared Cache)
+    end
+
+    User --> CDN
+    CDN --> LB
+    LB --> API
+    API --> SVC
+    SVC --> DB
+    SVC --> Cache
+`;
+
+// Injected into the SVG after render for reliable, cascade-proof styling
+const SVG_STYLE = `
+  .node rect, .node circle, .node ellipse, .node polygon, .node path {
+    stroke-width: 2px !important;
+  }
+  .node .label, .nodeLabel, .edgeLabel, .cluster-label {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    fill: #0f172a !important;
+    color: #0f172a !important;
+  }
+  .edgeLabel {
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    background: #f8fafc !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+  }
+  .edgePath path {
+    stroke-width: 2px !important;
+    stroke: #475569 !important;
+  }
+  .arrowheadPath {
+    fill: #475569 !important;
+  }
+  .cluster rect {
+    stroke-width: 1.5px !important;
+    rx: 8px !important;
+  }
+  /* Subgraph label */
+  .cluster span, .cluster .nodeLabel {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+  }
+`;
+
+export default function Canvas({ diagram }: { diagram: string | null }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [svgDimensions, setSvgDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const accent = isDarkMode ? '#3b82f6' : '#2563eb'; 
-    const text = isDarkMode ? '#fafafa' : '#09090b';
-    const bg = isDarkMode ? '#09090b' : '#ffffff';
-
     mermaid.initialize({
       startOnLoad: false,
       theme: 'base',
       themeVariables: {
-        fontFamily: 'var(--font-geist-mono)',
-        fontSize: '16px', // Increased from 13px
-        primaryColor: isDarkMode ? '#18181b' : '#f4f4f5',
-        primaryTextColor: text,
-        primaryBorderColor: accent,
-        lineColor: isDarkMode ? '#3f3f46' : '#d4d4d8',
-        nodeBorder: accent,
-        tertiaryColor: isDarkMode ? '#18181b' : '#f4f4f5',
-        edgeLabelBackground: bg,
-        mainBkg: isDarkMode ? '#18181b' : '#f4f4f5',
-        secondaryColor: isDarkMode ? '#27272a' : '#e4e4e7',
-        tertiaryBorderColor: accent,
+        fontFamily: "'Inter', system-ui, sans-serif",
+        fontSize: '14px',
+        // Node fill/stroke
+        primaryColor: '#f0f9ff',
+        primaryTextColor: '#0f172a',
+        primaryBorderColor: '#0ea5e9',
+        // Secondary (e.g. subgraph fill)
+        secondaryColor: '#f8fafc',
+        secondaryTextColor: '#0f172a',
+        secondaryBorderColor: '#cbd5e1',
+        // Tertiary
+        tertiaryColor: '#fefce8',
+        tertiaryTextColor: '#0f172a',
+        tertiaryBorderColor: '#fbbf24',
+        // Edges & background
+        lineColor: '#475569',
+        edgeLabelBackground: '#f8fafc',
+        mainBkg: '#ffffff',
+        nodeBorder: '#0ea5e9',
+        clusterBkg: '#f8fafc',
+        clusterBorder: '#cbd5e1',
+        titleColor: '#0f172a',
       },
-      flowchart: { 
-        curve: 'basis', // Changed from 'linear' for smoother curves
-        padding: 60, // Increased padding
-        nodeSpacing: 80, // Add more space between nodes
-        rankSpacing: 100, // Add more space between ranks
-        diagramPadding: 40,
+      flowchart: {
+        curve: 'basis',
+        padding: 40,
         htmlLabels: true,
+        nodeSpacing: 60,
+        rankSpacing: 90,
+        diagramPadding: 32,
+        useMaxWidth: true,
       },
-      // Increase diagram scale
-      gantt: { fontSize: 16 },
-      sequence: { fontSize: 16 },
-      class: { fontSize: 16 },
     });
 
-    if (diagram && containerRef.current) {
-      const id = `svg-${Math.random().toString(36).substring(2, 11)}`;
-      const render = async () => {
-        try {
-          const cleanDiagram = diagram.replace(/```mermaid/g, '').replace(/```/g, '').trim();
-          const { svg } = await mermaid.render(id, cleanDiagram);
-          if (containerRef.current) {
-            containerRef.current.innerHTML = svg;
-            const svgElement = containerRef.current.querySelector('svg');
-            if (svgElement) {
-              // Remove fixed dimensions to allow scaling
-              svgElement.removeAttribute('height');
-              svgElement.removeAttribute('width');
-              
-              // Get viewBox dimensions
-              const viewBox = svgElement.getAttribute('viewBox');
-              if (viewBox) {
-                const [, , width, height] = viewBox.split(' ').map(Number);
-                setSvgDimensions({ width, height });
-              }
-              
-              // Set responsive sizing
-              svgElement.style.maxWidth = 'none';
-              svgElement.style.width = 'auto';
-              svgElement.style.height = 'auto';
-              
-              // Make text and shapes more interactive
-              const nodes = svgElement.querySelectorAll('.node, .nodeLabel, .edgeLabel');
-              nodes.forEach(node => {
-                (node as HTMLElement).style.cursor = 'pointer';
-              });
-            }
+    const renderDiagram = async () => {
+      const content = diagram?.trim() || DEFAULT_DIAGRAM;
+      const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
+
+      try {
+        const clean = content.replace(/```mermaid/g, '').replace(/```/g, '').trim();
+        const { svg } = await mermaid.render(id, clean);
+
+        if (!containerRef.current) return;
+
+        containerRef.current.innerHTML = svg;
+        const svgEl = containerRef.current.querySelector('svg');
+        if (!svgEl) return;
+
+        // Let SVG fill container width, height auto
+        svgEl.removeAttribute('height');
+        svgEl.removeAttribute('width');
+        svgEl.setAttribute('width', '100%');
+        svgEl.style.width = '100%';
+        svgEl.style.height = 'auto';
+        svgEl.style.display = 'block';
+        svgEl.style.overflow = 'visible';
+
+        // Inject style tag inside SVG for reliable override
+        const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        styleEl.textContent = SVG_STYLE;
+        svgEl.prepend(styleEl);
+
+        // Ensure foreignObject labels (htmlLabels) also inherit styling
+        svgEl.querySelectorAll('foreignObject').forEach(fo => {
+          const div = fo.querySelector('div');
+          if (div) {
+            div.style.fontSize = '14px';
+            div.style.fontWeight = '600';
+            div.style.color = '#0f172a';
+            div.style.fontFamily = "'Inter', system-ui, sans-serif";
+            div.style.lineHeight = '1.4';
           }
-        } catch (e) {
-          console.error("Render_Error", e);
+        });
+      } catch (e) {
+        console.error('Mermaid render error:', e);
+        if (containerRef.current) {
+          containerRef.current.innerHTML = `
+            <div style="color:#ef4444;font-size:13px;font-family:monospace;padding:16px;">
+              Diagram parse error. Check syntax.
+            </div>`;
         }
-      };
-      render();
-    }
+      }
+    };
+
+    renderDiagram();
   }, [diagram]);
 
   return (
-    <div className="relative w-full h-full bg-blueprint overflow-hidden">
+    <div className="relative w-full h-full bg-[#050505] overflow-hidden">
       <TransformWrapper
-        initialScale={0.8}
+        initialScale={0.7}
         minScale={0.1}
-        maxScale={5}
-        centerOnInit={true}
-        wheel={{ step: 0.1 }}
-        doubleClick={{ mode: "reset" }}
-        panning={{ velocityDisabled: false }}
+        maxScale={4}
+        centerOnInit
+        limitToBounds={false}
+        wheel={{ step: 0.08 }}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
-            {/* FLOATING CONTROLS */}
-            <div className="absolute bottom-6 right-6 flex flex-col gap-2 z-30">
-              <button 
-                onClick={() => zoomIn(0.3)} 
-                className="p-3 bg-background border border-border hover:bg-accent hover:text-white hover:border-accent transition-all shadow-xl group"
-                title="Zoom In"
-              >
-                <ZoomIn size={18} className="group-hover:scale-110 transition-transform" />
-              </button>
-              <button 
-                onClick={() => zoomOut(0.3)} 
-                className="p-3 bg-background border border-border hover:bg-accent hover:text-white hover:border-accent transition-all shadow-xl group"
-                title="Zoom Out"
-              >
-                <ZoomOut size={18} className="group-hover:scale-110 transition-transform" />
-              </button>
-              <button 
-                onClick={() => {
-                  resetTransform();
-                  centerView(0.8);
-                }} 
-                className="p-3 bg-background border border-border hover:bg-accent hover:text-white hover:border-accent transition-all shadow-xl group"
-                title="Reset View"
-              >
-                <Maximize size={18} className="group-hover:scale-110 transition-transform" />
-              </button>
+            {/* Zoom controls */}
+            <div className="absolute bottom-8 right-8 flex flex-col gap-1 z-30">
+              {[
+                { icon: <ZoomIn size={18} />, action: () => zoomIn(0.2), title: 'Zoom In' },
+                { icon: <ZoomOut size={18} />, action: () => zoomOut(0.2), title: 'Zoom Out' },
+                {
+                  icon: <Maximize size={18} />,
+                  action: () => { resetTransform(); centerView(0.7); },
+                  title: 'Reset',
+                },
+              ].map(({ icon, action, title }) => (
+                <button
+                  key={title}
+                  onClick={action}
+                  title={title}
+                  className="p-2.5 bg-white/90 backdrop-blur text-slate-800 hover:bg-cyan-500 hover:text-white transition-all border border-white/10 shadow-xl rounded"
+                >
+                  {icon}
+                </button>
+              ))}
             </div>
 
-            {/* Zoom Level Indicator */}
-            <div className="absolute top-6 right-6 bg-background/90 border border-border px-4 py-2 backdrop-blur-sm z-30">
-              <span className="text-[9px] font-bold uppercase tracking-widest opacity-40">
-                Interactive Mode
-              </span>
-            </div>
-
-            <TransformComponent 
-              wrapperClassName="!w-full !h-full !cursor-grab active:!cursor-grabbing" 
+            <TransformComponent
+              wrapperClassName="!w-full !h-full !cursor-grab active:!cursor-grabbing"
               contentClassName="!w-full !h-full flex items-center justify-center"
             >
-              {!diagram ? (
-                <div className="flex flex-col items-center gap-4 opacity-10">
-                  <div className="flex gap-2">
-                    {[...Array(3)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-foreground" />)}
-                  </div>
-                  <span className="text-[10px] font-bold uppercase tracking-[0.4em]">Initialize_Canvas</span>
-                </div>
-              ) : (
-                <div 
-                  ref={containerRef} 
-                  className="mermaid-container p-12"
-                  style={{
-                    minWidth: '800px',
-                    minHeight: '600px',
-                  }}
-                />
-              )}
+              <div
+                ref={containerRef}
+                className={`
+                  bg-white rounded-lg shadow-[0_0_80px_rgba(0,0,0,0.5)]
+                  transition-all duration-700
+                  ${!diagram ? 'opacity-25 scale-95 grayscale' : 'opacity-100 scale-100'}
+                `}
+                style={{
+                  // Fluid: shrinks on small viewports, grows on large
+                  width: 'clamp(640px, 80vw, 1400px)',
+                  padding: '48px 56px',
+                }}
+              />
             </TransformComponent>
           </>
         )}
       </TransformWrapper>
-
-      {/* VIEWPORT CORNERS */}
-      <div className="absolute top-0 left-0 w-10 h-10 border-t-2 border-l-2 border-accent/20 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-10 h-10 border-t-2 border-r-2 border-accent/20 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-10 h-10 border-b-2 border-l-2 border-accent/20 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-10 h-10 border-b-2 border-r-2 border-accent/20 pointer-events-none" />
     </div>
   );
 }
