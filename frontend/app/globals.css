@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+:root {
+  /* High-Contrast Light Mode */
+  --background: #ffffff;
+  --foreground: #111111;
+  --accent: #000000;
+  --border: rgba(0, 0, 0, 0.08);
+  --grid: rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Sophisticated Dark Mode */
+    --background: #0a0a0a; 
+    --foreground: #ededed;
+    --accent: #ffffff;
+    --border: rgba(255, 255, 255, 0.08);
+    --grid: rgba(255, 255, 255, 0.03);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border-subtle: var(--border);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  /* Architectural Sharp Edges */
+  * {
+    border-radius: 0px !important;
+  }
+  
+  /* Minimal Scrollbar */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--foreground);
+    opacity: 0.1;
+  }
+
+  /* Remove default select styling */
+  select {
+    appearance: none;
+    background-image: none;
+  }
+}
+
+/* --- Layout & Component Utilities --- */
+
+/* Responsive Mermaid Container */
+.mermaid-container svg {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  margin: 0 auto;
+}
+
+/* Force sharp corners on SVG elements rendered by Mermaid */
+.mermaid .node rect,
+.mermaid .node polygon,
+.mermaid .node path,
+.mermaid .cluster rect {
+  rx: 0 !important;
+  ry: 0 !important;
+  stroke-width: 1.2px !important;
+  fill: var(--background) !important;
+  stroke: var(--foreground) !important;
+}
+
+/* Studio Grid Overlay - Applied to the Canvas background */
+.bg-grid-pattern {
+  background-image: radial-gradient(var(--grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Subtle border animation for the Loading state */
+@keyframes border-pulse {
+  0% { border-color: var(--border); }
+  50% { border-color: var(--foreground); }
+  100% { border-color: var(--border); }
+}
+
+.animate-border-loading {
+  animation: border-pulse 2s infinite ease-in-out;
+}
+
+/* Inverted Button Hover (High-End Monochrome look) */
+.btn-monochrome-invert {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-monochrome-invert:hover:not(:disabled) {
+  background-color: var(--foreground);
+  color: var(--background);
+}
+
+/* Card Label Polish */
+.card-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--foreground);
+  opacity: 0.4;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+/* Ensure the Mermaid output is responsive */
+.mermaid svg {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Force architectural sharp edges (rx: 0) on all generated shapes */
+.mermaid rect, 
+.mermaid polygon, 
+.mermaid circle, 
+.mermaid ellipse, 
+.mermaid path {
+  rx: 0 !important;
+  ry: 0 !important;
+  stroke-width: 1.2px !important;
+}
+
+/* Fix for foreignObject (HTML labels) responsiveness */
+.mermaid foreignObject {
+  overflow: visible !important;
+}
+
+/* Ensure lines (edges) are pure black/white based on theme */
+.mermaid .edgePath .path {
+  stroke: var(--foreground) !important;
+  stroke-width: 1.5px !important;
+}
