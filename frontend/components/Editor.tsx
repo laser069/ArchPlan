@@ -1,34 +1,46 @@
 'use client';
+
 import { useState } from 'react';
+import { Send, Sparkles } from 'lucide-react';
 
 export default function Editor({ onGenerate, loading, hasDiagram }: any) {
   const [query, setQuery] = useState('');
   
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-[10px] uppercase tracking-widest text-black/40 font-bold">Requirements</h3>
-      <textarea 
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Describe the system nodes..."
-        className="w-full h-48 bg-white border border-black/10 p-4 text-sm focus:border-black outline-none transition-all resize-none font-sans"
-      />
+      <div className="relative">
+        <textarea 
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="DESCRIBE SYSTEM ARCHITECTURE..."
+          className="w-full h-80 bg-background border border-border p-5 text-[12px] font-mono leading-relaxed outline-none focus:ring-1 focus:ring-accent focus:border-accent transition-all resize-none placeholder:opacity-20"
+        />
+        <div className="absolute bottom-3 right-3 text-[9px] font-mono opacity-20 pointer-events-none">
+          {query.length}
+        </div>
+      </div>
       
       <div className="flex flex-col gap-2">
         <button 
           onClick={() => onGenerate(query, false)}
           disabled={loading || !query.trim()}
-          className="bg-black text-white text-[10px] font-bold uppercase tracking-widest py-4 hover:bg-zinc-800 disabled:opacity-20 transition-all active:scale-[0.98]"
+          className="flex items-center justify-center gap-3 bg-accent text-white py-4 text-[10px] font-bold uppercase tracking-widest hover:brightness-110 disabled:opacity-20 transition-all"
         >
-          {loading ? 'Processing...' : 'Generate New'}
+          {loading ? (
+            <div className="h-3 w-3 border-2 border-white/30 border-t-white animate-spin" />
+          ) : (
+            <Send size={12} />
+          )}
+          <span>Generate System</span>
         </button>
 
         <button 
           onClick={() => onGenerate(query, true)}
           disabled={loading || !hasDiagram || !query.trim()}
-          className="border border-black/10 text-black text-[10px] font-bold uppercase tracking-widest py-4 disabled:opacity-5 hover:bg-black hover:text-white transition-all active:scale-[0.98]"
+          className="flex items-center justify-center gap-3 border border-accent text-accent py-4 text-[10px] font-bold uppercase tracking-widest hover:bg-accent hover:text-white disabled:opacity-5 transition-all"
         >
-          Refine Design
+          <Sparkles size={12} />
+          <span>Refine Nodes</span>
         </button>
       </div>
     </div>

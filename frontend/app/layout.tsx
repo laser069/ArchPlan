@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ArchPlan // Core",
+  title: "ArchPlan // Studio",
   description: "Architectural Systems Design Environment",
 };
 
@@ -25,20 +25,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      // Added 'selection' styles to ensure even text highlighting is monochrome
       className={`
         ${geistSans.variable} 
         ${geistMono.variable} 
         h-full 
         antialiased 
-        selection:bg-white 
-        selection:text-black
+        selection:bg-accent 
+        selection:text-white
       `}
     >
-      <body className="h-full overflow-hidden bg-background text-foreground">
-        {/* The 'overflow-hidden' on body is crucial for "App-style" UIs 
-          to prevent the whole page from bouncing on mobile or desktop.
-        */}
+      <body className="h-full overflow-hidden bg-background text-foreground font-sans">
         {children}
       </body>
     </html>

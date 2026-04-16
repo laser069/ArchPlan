@@ -4,13 +4,21 @@ import { useState, useEffect } from 'react';
 import { useArchitecture } from '@/hooks/useArchitecture';
 import Editor from '@/components/Editor';
 import Canvas from '@/components/Canvas';
+import { 
+  Cpu, 
+  Layers, 
+  Terminal, 
+  Box, 
+  Download, 
+  Settings2, 
+  RefreshCcw 
+} from 'lucide-react';
 
 export default function Home() {
-  const { data, loading, generate, setData } = useArchitecture();
+  const { data, loading, generate } = useArchitecture();
   const [provider, setProvider] = useState('groq');
   const [model, setModel] = useState('');
 
-  // Persist settings
   useEffect(() => {
     const savedProvider = localStorage.getItem('ap_provider');
     const savedModel = localStorage.getItem('ap_model');
@@ -24,112 +32,155 @@ export default function Home() {
     generate(query, provider, model, refine);
   };
 
-  const resetWorkspace = () => {
-    if (confirm("Reset all data?")) {
-      localStorage.clear();
-      window.location.reload();
-    }
-  };
-
   return (
-    <main className="h-screen flex flex-col bg-white text-black font-sans selection:bg-black selection:text-white">
-      {/* Navigation with Settings */}
-      <nav className="h-16 border-b border-black/5 flex items-center justify-between px-8">
+    <main className="h-screen flex flex-col overflow-hidden bg-background">
+      
+      {/* COMMAND HEADER */}
+      <nav className="h-14 border-b bg-background flex items-center justify-between px-6 shrink-0 z-20">
         <div className="flex items-center gap-10">
-          <span className="text-xs font-black uppercase tracking-widest">ArchPlan</span>
+          <div className="flex items-center gap-3">
+            <div className="bg-accent p-1.5">
+              <Box size={14} className="text-white" />
+            </div>
+            <h1 className="text-[11px] font-bold tracking-[0.2em] uppercase">
+              ArchPlan <span className="font-light opacity-40">Studio</span>
+            </h1>
+          </div>
           
-          <div className="flex items-center gap-6 border-l border-black/10 pl-10">
-            <select 
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="text-[10px] uppercase font-bold tracking-tight bg-transparent outline-none cursor-pointer hover:opacity-50"
-            >
-              <option value="groq">Groq</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="gemini">Gemini</option>
-              <option value="ollama">Ollama</option>
-            </select>
+          <div className="hidden lg:flex items-center gap-6 border-l pl-10 h-14">
+            <div className="flex flex-col gap-1">
+              <span className="text-[8px] font-bold uppercase opacity-30 tracking-widest">Provider</span>
+              <select 
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+                className="text-[10px] font-bold bg-transparent outline-none cursor-pointer hover:text-accent transition-colors uppercase"
+              >
+                <option value="groq">Groq AI</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="gemini">Google Gemini</option>
+              </select>
+            </div>
 
-            <input 
-              type="text" 
-              placeholder="MODEL ID"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="text-[10px] border-b border-black/10 focus:border-black outline-none w-32 pb-1 transition-all"
-            />
+            <div className="flex flex-col gap-1 border-l pl-6 h-8 justify-center">
+              <span className="text-[8px] font-bold uppercase opacity-30 tracking-widest">Model</span>
+              <input 
+                type="text" 
+                placeholder="ID: Llama-3-70b"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="text-[10px] bg-transparent border-none outline-none w-32 p-0 font-mono focus:text-accent transition-colors"
+              />
+            </div>
           </div>
         </div>
 
-        {loading && (
-          <div className="flex items-center gap-2 animate-in fade-in">
-            <div className="h-1 w-1 bg-black animate-ping" />
-            <span className="text-[9px] uppercase tracking-widest opacity-50">Processing</span>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {loading && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/5 border border-accent/20">
+              <RefreshCcw size={10} className="animate-spin text-accent" />
+              <span className="text-[9px] font-bold text-accent uppercase tracking-widest">Synthesizing</span>
+            </div>
+          )}
+          <button className="p-2 hover:bg-muted transition-colors">
+            <Settings2 size={16} className="opacity-40" />
+          </button>
+        </div>
       </nav>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Side: Controls & Components */}
-        <aside className="w-[350px] border-r border-black/5 p-8 flex flex-col gap-10 overflow-y-auto">
-          <Editor onGenerate={handleGenerate} loading={loading} hasDiagram={!!data?.diagram} />
-          
-          {data?.components && data.components.length > 0 && (
-            <div className="animate-in slide-in-from-left-4 duration-500">
-              <h3 className="text-[10px] uppercase tracking-widest text-black/40 mb-4 font-bold">Components</h3>
-              <ul className="space-y-2">
-                {data.components.map((c: any, i: number) => (
-                  <li key={i} className="flex justify-between items-baseline border-b border-black/[0.03] pb-2">
-                    <span className="text-[11px] font-bold uppercase">{c.name}</span>
-                    <span className="text-[9px] opacity-40 italic">{c.type}</span>
-                  </li>
-                ))}
-              </ul>
+        
+        {/* LEFT: SPECS & NODES */}
+        <aside className="w-[400px] border-r bg-muted/20 flex flex-col shrink-0">
+          <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+            <div className="flex items-center gap-2 mb-6">
+              <Terminal size={12} className="opacity-40" />
+              <h2 className="text-[10px] font-bold uppercase tracking-widest">Specifications</h2>
             </div>
-          )}
+            
+            <Editor onGenerate={handleGenerate} loading={loading} hasDiagram={!!data?.diagram} />
+            
+            {data?.components && data.components.length > 0 && (
+              <div className="mt-12">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Layers size={12} className="opacity-40" />
+                    <h2 className="text-[10px] font-bold uppercase tracking-widest">Inventory</h2>
+                  </div>
+                </div>
+                
+                <div className="border bg-background divide-y">
+                  {data.components.map((c: any, i: number) => (
+                    <div key={i} className="p-3 flex justify-between items-center group border-l-2 border-transparent hover:border-accent hover:bg-accent/5 transition-all">
+                      <div className="flex items-center gap-3">
+                        <Cpu size={12} className="opacity-20 group-hover:text-accent transition-all" />
+                        <span className="text-[11px] font-bold uppercase tracking-tight">{c.name}</span>
+                      </div>
+                      <span className="text-[9px] opacity-30 uppercase italic">{c.type}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </aside>
 
-        {/* Center: Canvas */}
-        <section className="flex-1 bg-[#F9F9F9] relative flex flex-col">
-          <div className="flex justify-between items-center px-8 py-3 border-b border-black/[0.03]">
-             <span className="text-[9px] uppercase tracking-widest opacity-30 font-bold">Visual Manifest</span>
-             {data?.diagram && (
-               <button 
-                 onClick={() => navigator.clipboard.writeText(data.diagram)}
-                 className="text-[9px] uppercase font-bold hover:underline"
-                >
-                 Copy Source
-               </button>
-             )}
+        {/* CENTER: DRAFTING CANVAS */}
+        <section className="flex-1 relative bg-blueprint flex flex-col">
+          <div className="h-10 border-b bg-background/60 backdrop-blur-md flex items-center px-6 justify-between shrink-0 z-10">
+            <span className="text-[9px] font-bold opacity-30 uppercase tracking-widest">Viewport // 1.0</span>
+            {data?.diagram && (
+              <button 
+                onClick={() => navigator.clipboard.writeText(data.diagram)}
+                className="text-[9px] font-bold text-accent hover:underline uppercase"
+              >
+                Copy Source
+              </button>
+            )}
           </div>
+
           <div className="flex-1 overflow-auto flex items-center justify-center p-12">
             <Canvas diagram={data?.diagram} />
           </div>
         </section>
 
-        {/* Right Side: Rationale & Scaling */}
-        <aside className="w-[350px] border-l border-black/5 p-8 flex flex-col gap-10 overflow-y-auto bg-white">
-          <div>
-            <h3 className="text-[10px] uppercase tracking-widest text-black/40 mb-4 font-bold">Rationale</h3>
-            <p className="text-[12px] leading-relaxed text-black/70">
-              {data?.architecture || "Awaiting generation..."}
-            </p>
-          </div>
+        {/* RIGHT: ANALYSIS */}
+        <aside className="w-[320px] border-l bg-muted/20 flex flex-col shrink-0">
+          <div className="p-8 overflow-y-auto flex-1 space-y-12 custom-scrollbar">
+            <section>
+              <h2 className="text-[10px] font-bold uppercase tracking-widest mb-4 opacity-40">Rationale</h2>
+              <div className="text-[12px] leading-relaxed text-foreground/80 font-serif italic border-l-2 border-accent pl-6 py-2">
+                {data?.architecture || "Awaiting sequence..."}
+              </div>
+            </section>
 
-          <div className="pt-8 border-t border-black/5">
-            <h3 className="text-[10px] uppercase tracking-widest text-black/40 mb-4 font-bold">Scaling</h3>
-            <p className="text-[12px] leading-relaxed text-black/70">
-              {data?.scaling || "Awaiting generation..."}
-            </p>
+            <section>
+              <h2 className="text-[10px] font-bold uppercase tracking-widest mb-4 opacity-40">Risk Assessment</h2>
+              <div className="text-[11px] leading-relaxed text-foreground/60 bg-background p-4 border border-dashed">
+                {data?.scaling || "No data available."}
+              </div>
+            </section>
           </div>
-
-          <button 
-            onClick={resetWorkspace}
-            className="mt-auto text-[9px] uppercase tracking-widest text-black/20 hover:text-red-500 transition-colors font-bold text-left"
-          >
-            Reset Workspace
-          </button>
+          
+          <div className="p-6 border-t bg-background">
+            <button className="w-full bg-foreground text-background py-3.5 text-[10px] font-bold uppercase tracking-widest hover:bg-accent hover:text-white transition-all">
+              Export Blueprint
+            </button>
+          </div>
         </aside>
       </div>
+
+      {/* FOOTER */}
+      <footer className="h-7 border-t bg-background px-4 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className={`w-1 h-1 ${loading ? 'bg-accent animate-pulse' : 'bg-emerald-500'}`} />
+            <span className="text-[8px] font-bold uppercase tracking-widest opacity-40">{loading ? 'Computing' : 'Synchronized'}</span>
+          </div>
+        </div>
+        <div className="text-[8px] font-bold uppercase tracking-widest opacity-20">
+          Precision Studio v3.0
+        </div>
+      </footer>
     </main>
   );
 }
