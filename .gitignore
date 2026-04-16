@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+node_modules/
+.env
+test.py
+backend/docs/
+backend/chroma_db/
+*.db
+*.sqlite3
+*.pickle
+*.pyc
+.next/
+dist/
+build/
