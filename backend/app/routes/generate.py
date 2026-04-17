@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from app.models.schema import GenerateRequest, GenerateResponse, Constraints
 from app.services.llm_service import generate_architecture
 from app.services.constraint_extractor import extract_constraints
+from app.services.llm_service import _inflate
 
 router = APIRouter()
 
@@ -59,3 +60,29 @@ async def generate_endpoint(req: GenerateRequest):
         print(f"!!! Error in generate_endpoint: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/test-diagram", response_model=GenerateResponse)
+async def test_diagram_endpoint():
+    """Returns a hardcoded architectural JSON to test frontend rendering."""
+    mock_raw = {
+        "n": [
+            ["User Interface", "X"], 
+            ["Load Balancer", "L"], 
+            ["Core API", "S"], 
+            ["Primary DB", "D"],
+            ["Redis Cache", "C"]
+        ],
+        "e": [
+            ["User Interface", "Load Balancer"],
+            ["Load Balancer", "Core API"],
+            ["Core API", "Primary DB"],
+            ["Core API", "Redis Cache"]
+        ],
+        "a": "This is a TEST architecture. No LLM tokens were harmed.",
+        "s": "Horizontal scaling for API, Read-replicas for DB."
+    }
+    
+    # Process the mock data through our new JSON inflator
+    inflated = _inflate(mock_raw)
+    return GenerateResponse(**inflated)

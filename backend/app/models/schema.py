@@ -2,13 +2,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
-# 1. Added "openrouter" to the allowed providers
 VALID_PROVIDERS = Literal["gemini", "ollama", "groq", "openrouter"]
 VALID_SCALE   = Literal["startup", "growth", "enterprise"]
 
 class Constraints(BaseModel):
     model_config = {"extra": "ignore"}
-
     budget_usd_month: Optional[int]  = None
     team_size:         Optional[int]  = None
     peak_rps:          Optional[int]  = None
@@ -26,13 +24,10 @@ class Component(BaseModel):
 class GenerateRequest(BaseModel):
     query:    str
     provider: VALID_PROVIDERS = "groq"
-    
-    # 2. Added model field for dynamic selection
-    # This allows the frontend to pass strings like "anthropic/claude-3.5-sonnet"
     model:    Optional[str] = None 
-    
     constraints:         Optional[Constraints]       = None
-    existing_diagram:    Optional[str]               = None
+    # CHANGED: existing_diagram is now a Dict (the JSON state) instead of a str
+    existing_diagram:    Optional[Dict[str, Any]]     = None 
     existing_components: Optional[List[Dict[str, Any]]] = None
     cached_constraints:  Optional[Dict[str, Any]]    = None
 
@@ -40,5 +35,10 @@ class GenerateResponse(BaseModel):
     components:   List[Component]
     architecture: str
     scaling:      str
-    diagram:      str
+    # CHANGED: Replaced diagram: str with nodes and edges
+    nodes:        List[Dict[str, Any]]
+    edges:        List[Dict[str, Any]]
+    # CRITICAL: Keep these for the refinement loop logic
+    raw_nodes:    List[List[str]] 
+    raw_edges:    List[List[str]]
     constraints:  Optional[Dict[str, Any]] = None

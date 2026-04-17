@@ -45,20 +45,16 @@ def _extract_edges_from_diagram(diagram: str):
     return edges
 
 def _inflate(raw: dict) -> dict:
-    """
-    Converts raw LLM JSON into a rich UI response.
-    Ensures 'n' and 'e' are preserved for future refinement loops.
-    """
     nodes = raw.get("n", [])
     edges = raw.get("e", [])
-
-    # Map raw nodes to Component objects
-    components = [{"name": n, "type": TYPE_MAP.get(t, "Service")} for n, t in nodes]
-    
-    # Internal mapping for Mermaid IDs
-    id_of = {n: n.replace(" ", "_") for n, _ in nodes}
     type_of = {n: t for n, t in nodes}
 
+    # Configuration for layout math
+    LAYER_WIDTH = 900
+    LAYER_HEIGHT = 200
+    LAYER_GAP = 50  # Space between layers
+    NODE_X_STEP = 220 # Horizontal space between nodes in a layer
+    
     tiers = {
         "Entry":         ["L", "G", "N", "X", "P"],
         "Logic":         ["S", "W", "A"],
@@ -66,44 +62,81 @@ def _inflate(raw: dict) -> dict:
         "Observability": ["M"],
     }
 
-    # --- Hub Collapsing Logic (For Visualization Only) ---
-    in_degree = Counter(b for _, b in edges)
-    hub_names = {
-        n for n, t in nodes 
-        if t in HUB_TYPES and in_degree.get(n, 0) > HUB_FAN_THRESHOLD
-    }
-    
-    entry_chars = set(tiers["Entry"])
-    
-    # Generate the Mermaid String
-    lines = ["graph TD"]
-    for tier_name, types in tiers.items():
-        tier_nodes = [n for n, t in nodes if t in types]
-        if tier_nodes:
-            lines.append(f"  subgraph {tier_name}")
-            for node_name in tier_nodes:
-                lines.append(f"    {id_of[node_name]}[{node_name}]")
-            lines.append("  end")
+    formatted_nodes = []
+    formatted_edges = []
 
-    for a, b in edges:
-        # If it's a hub, only show connections from Entry tier to keep it clean
-        if b in hub_names and type_of.get(a) not in entry_chars:
-            continue
-        lines.append(f"  {id_of[a]} --> {id_of[b]}")
+    # 1. Create Tier "Group" Nodes with Y-offsets
+    current_y = 0
+    for tier_name in tiers.keys():
+        formatted_nodes.append({
+            "id": tier_name,
+            "type": "group",
+            "data": {"label": f"{tier_name} Layer"},
+            "position": {"x": 0, "y": current_y},
+            # CRITICAL: Parent groups need explicit dimensions
+            "style": {
+                "width": LAYER_WIDTH, 
+                "height": LAYER_HEIGHT,
+                "backgroundColor": "rgba(6, 182, 212, 0.02)",
+                "border": "1px solid rgba(6, 182, 212, 0.1)",
+                "borderRadius": "8px"
+            }
+        })
+        current_y += (LAYER_HEIGHT + LAYER_GAP)
 
-    if hub_names:
-        lines.append(f"  note[\"Commonly used: {', '.join(hub_names)}\"]")
+    # 2. Map Components to Nodes with horizontal spreading
+    tier_counts = {k: 0 for k in tiers.keys()} # Track how many nodes in each tier
+
+    for node_name, type_char in nodes:
+        node_id = node_name.replace(" ", "_")
+        parent_tier = "Logic" 
+        for t_name, t_chars in tiers.items():
+            if type_char in t_chars:
+                parent_tier = t_name
+                break
+        
+        # Calculate relative position inside the parent
+        x_pos = 40 + (tier_counts[parent_tier] * NODE_X_STEP)
+        tier_counts[parent_tier] += 1
+        
+        formatted_nodes.append({
+            "id": node_id,
+            "parentId": parent_tier,
+            "type": "architectureNode", # Matches your custom component
+            "data": {
+                "label": node_name,
+                "type": TYPE_MAP.get(type_char, "Service")
+            },
+            # Position is relative to the top-left of the 'parent_tier' group
+            "position": {"x": x_pos, "y": 60}, 
+            "extent": "parent"
+        })
+
+    # 3. Map Connections to Edges
+    for i, (source, target) in enumerate(edges):
+        s_id = source.replace(" ", "_")
+        t_id = target.replace(" ", "_")
+        
+        # Determine if we should animate (Queues and Caches usually imply flow)
+        is_animated = type_of.get(target) in ["Q", "C"]
+        
+        formatted_edges.append({
+            "id": f"e{i}-{s_id}-{t_id}",
+            "source": s_id,
+            "target": t_id,
+            "animated": is_animated,
+            "style": {"stroke": "#06b6d4", "strokeWidth": 2}
+        })
 
     return {
-        "components": components,
-        "diagram": "\n".join(lines),
+        "components": [{"name": n, "type": TYPE_MAP.get(t, "Service")} for n, t in nodes],
+        "nodes": formatted_nodes,
+        "edges": formatted_edges,
         "architecture": raw.get("a", ""),
         "scaling": raw.get("s", ""),
-        # CRITICAL: We pass the RAW nodes and edges back for the next Refinement call
         "raw_nodes": nodes, 
         "raw_edges": edges
     }
-
 async def generate_architecture(
     query: str,
     provider: str = "groq",
