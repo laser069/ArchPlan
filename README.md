@@ -7,8 +7,8 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 * **🧠 Intelligent Constraint Extraction**: Automatically parses user requirements to extract technical constraints, budget limits, performance requirements, compliance needs, and architectural preferences
 * **🔄 Iterative Design Refinement**: Supports collaborative design workflows where users can iteratively refine architectures with AI-powered suggestions
 * **📚 RAG-Powered Knowledge Base**: Integrates a local vector database with PDF document ingestion for context-aware architecture recommendations
-* **🤖 Multi-Provider LLM Support**: Seamlessly switches between Google Gemini, OpenRouter, and local Ollama models for maximum reliability
-* **📊 Live Mermaid Visualization**: Real-time rendering of architecture diagrams with interactive components and state persistence
+* **🤖 Multi-Provider LLM Support**: Seamlessly switches between Google Gemini, Groq, OpenRouter, and local Ollama models for maximum reliability
+* **📊 Interactive ReactFlow Diagrams**: Real-time rendering of architecture diagrams with drag-and-drop nodes, layered visualization, and interactive components
 * **📄 PDF Document Ingestion**: Automatically processes and indexes technical documentation for enhanced design guidance
 
 ---
@@ -20,9 +20,9 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 | **Frontend** | Next.js 14, TypeScript, Tailwind CSS | Modern React framework with type safety |
 | **Backend** | FastAPI, Python 3.10+, Pydantic | High-performance async API framework |
 | **Database** | ChromaDB | Vector database for document embeddings |
-| **LLM Providers** | Google Gemini, OpenRouter, Ollama | Multi-provider AI model support |
+| **LLM Providers** | Google Gemini, Groq, OpenRouter, Ollama | Multi-provider AI model support |
 | **Embeddings** | Sentence Transformers | Text vectorization for RAG |
-| **Visualization** | Mermaid.js | Architecture diagram rendering |
+| **Visualization** | ReactFlow | Interactive architecture diagram rendering |
 | **PDF Processing** | PyMuPDF (Fitz) | Document ingestion and text extraction |
 
 ---
@@ -95,9 +95,9 @@ uvicorn app.main:app --reload --port 8000
 1. **User Input** → Natural language requirements submitted via Next.js frontend
 2. **Constraint Extraction** → Deterministic parsing using zero-temperature Ollama inference
 3. **Knowledge Retrieval** → RAG system queries ChromaDB for relevant architectural patterns
-4. **AI Generation** → Multi-provider LLM orchestration (Gemini → OpenRouter → Ollama fallback)
-5. **Architecture Synthesis** → Structured JSON output with Mermaid diagrams and component specifications
-6. **Interactive Refinement** → Users can iteratively modify designs with AI assistance
+4. **AI Generation** → Multi-provider LLM orchestration (Gemini → Groq → OpenRouter → Ollama fallback)
+5. **Architecture Synthesis** → Structured JSON output with ReactFlow nodes/edges and component specifications
+6. **Interactive Refinement** → Users can drag-and-drop, modify, and iteratively refine designs with AI assistance
 
 ### RAG Pipeline
 - **Document Ingestion**: PDF files processed and chunked with overlap
@@ -107,7 +107,8 @@ uvicorn app.main:app --reload --port 8000
 
 ### Multi-Provider LLM Strategy
 - **Primary**: Google Gemini (fast, high-quality)
-- **Secondary**: OpenRouter (broad model selection)
+- **Secondary**: Groq (ultra-fast inference, cost-effective)
+- **Tertiary**: OpenRouter (broad model selection)
 - **Fallback**: Local Ollama (privacy, offline capability)
 
 ---
@@ -193,7 +194,15 @@ python test_retriever.py
 # Test constraint extraction
 curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Design a scalable e-commerce platform"}'
+  -d '{"query": "Design a scalable e-commerce platform", "provider": "groq"}'
+
+# Test with specific model
+curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Design a microservices architecture", "provider": "groq", "model": "llama-3.3-70b-versatile"}'
+
+# Test diagram endpoint (development)
+curl "http://localhost:8000/test-diagram"
 ```
 
 ### Frontend Development
@@ -203,6 +212,12 @@ pnpm dev          # Development server
 pnpm build        # Production build
 pnpm lint         # Code linting
 ```
+
+**Development Features:**
+- **Test Button**: Use the "Test Architecture" button in the UI to render sample diagrams without API calls
+- **Provider Selection**: Choose between Gemini, Groq, OpenRouter, and Ollama providers
+- **Model Selection**: Specify custom model names for fine-tuned control
+- **Interactive Canvas**: Drag, zoom, and pan the ReactFlow diagram for better exploration
 
 ---
 
@@ -214,12 +229,16 @@ pnpm lint         # Code linting
 Generate architecture from requirements
 ```json
 {
-  "prompt": "Design a high-traffic e-commerce platform",
-  "provider": "gemini",  // optional: "gemini", "openrouter", "ollama"
-  "existing_diagram": "...",  // optional: for refinement
+  "query": "Design a high-traffic e-commerce platform",
+  "provider": "groq",  // optional: "gemini", "groq", "openrouter", "ollama"
+  "model": "llama-3.3-70b-versatile",  // optional: specific model name
+  "existing_diagram": {...},  // optional: JSON nodes/edges for refinement
   "existing_components": [...]  // optional: for refinement
 }
 ```
+
+#### GET `/test-diagram`
+Returns a sample architecture diagram for development testing (no LLM tokens used)
 
 #### GET `/health`
 Service health check
@@ -227,19 +246,33 @@ Service health check
 ### Response Format
 ```json
 {
-  "diagram": "graph TD\nA[User] --> B[Load Balancer]...",
   "components": [
     {
       "name": "API Gateway",
-      "type": "gateway",
-      "technologies": ["NGINX", "Kong"],
-      "scaling": "horizontal"
+      "type": "gateway"
     }
   ],
+  "nodes": [
+    {
+      "id": "API_Gateway",
+      "type": "architectureNode",
+      "data": {"label": "API Gateway", "type": "Gateway"},
+      "position": {"x": 100, "y": 100}
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0-API_Gateway-Core_API",
+      "source": "API_Gateway",
+      "target": "Core_API",
+      "animated": false
+    }
+  ],
+  "architecture": "High-level architecture description...",
+  "scaling": "Horizontal scaling recommendations...",
   "constraints": {
-    "budget": "$50k-100k",
-    "rps": "10k",
-    "region": "us-east-1"
+    "budget_usd_month": 5000,
+    "team_size": 5
   }
 }
 ```
