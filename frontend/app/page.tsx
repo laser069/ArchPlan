@@ -5,20 +5,13 @@ import { useArchitecture } from '@/hooks/useArchitecture';
 import Editor from '@/components/Editor';
 import Canvas from '@/components/Canvas';
 import { 
-  Cpu, 
-  Layers, 
-  Terminal, 
-  Box, 
-  Settings2, 
-  RefreshCcw,
-  Activity,
-  Maximize2,
-  Share2,
-  HardDrive
+  Cpu, Layers, Terminal, Box, Settings2, 
+  RefreshCcw, Activity, Maximize2, Share2, HardDrive, 
+  FlaskConical 
 } from 'lucide-react';
 
 export default function Home() {
-  const { data, loading, generate } = useArchitecture();
+  const { data, setData, loading, generate } = useArchitecture(); // Ensure setData is exported from your hook
   const [provider, setProvider] = useState('groq');
   const [model, setModel] = useState('');
 
@@ -33,6 +26,18 @@ export default function Home() {
     localStorage.setItem('ap_provider', provider);
     localStorage.setItem('ap_model', model);
     generate(query, provider, model, refine);
+  };
+
+  // --- NEW: Test Logic for Zero-Token Development ---
+  const runTest = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/test-diagram');
+      const testData = await res.json();
+      // Manually set the state to trigger the canvas rendering
+      if (setData) setData(testData); 
+    } catch (e) {
+      console.error("Test endpoint failed. Is the backend running?", e);
+    }
   };
 
   return (
@@ -82,6 +87,15 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-6">
+          {/* Test Button for dev mode */}
+          <button 
+            onClick={runTest}
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/10 rounded text-[10px] font-mono text-white/40 hover:text-cyan-400 hover:border-cyan-500/50 transition-all"
+          >
+            <FlaskConical size={12} />
+            RUN_TEST
+          </button>
+
           {loading && (
             <div className="flex items-center gap-3 px-4 py-2 bg-cyan-500/10 border border-cyan-500/20 animate-pulse">
               <Activity size={12} className="text-cyan-400" />
@@ -104,7 +118,8 @@ export default function Home() {
                 <Terminal size={14} className="text-cyan-500" />
                 <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Input</h2>
               </div>
-              <Editor onGenerate={handleGenerate} loading={loading} hasDiagram={!!data?.diagram} />
+              {/* Note: hasDiagram now checks for nodes array */}
+              <Editor onGenerate={handleGenerate} loading={loading} hasDiagram={!!data?.nodes} />
             </section>
             
             {data?.components && (
@@ -131,19 +146,26 @@ export default function Home() {
 
         {/* CENTER VIEWPORT */}
         <div className="flex-1 bg-[#050505] relative flex flex-col overflow-hidden">
-          <div className="absolute top-6 left-6 right-6 h-12 flex items-center justify-between px-6 bg-black/60 backdrop-blur-xl border border-white/10 z-30">
+          <div className="absolute top-6 left-6 right-6 h-12 flex items-center justify-between px-6 bg-black/60 backdrop-blur-xl border border-white/10 z-30 rounded-lg">
             <div className="flex items-center gap-4">
               <span className="text-[9px] font-mono text-cyan-500 uppercase tracking-widest">Canvas View</span>
               <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.8)]" />
             </div>
             <div className="flex items-center gap-4">
-              <button onClick={() => navigator.clipboard.writeText(data?.diagram || '')} className="text-[10px] font-mono text-white/40 hover:text-cyan-400 transition-colors uppercase">Copy Code</button>
-              <Maximize2 size={14} className="text-white/40 cursor-pointer" />
+              {/* Copying nodes as JSON instead of Mermaid string */}
+              <button 
+                onClick={() => navigator.clipboard.writeText(JSON.stringify(data?.nodes || []))} 
+                className="text-[10px] font-mono text-white/40 hover:text-cyan-400 transition-colors uppercase"
+              >
+                Copy JSON
+              </button>
+              <Maximize2 size={14} className="text-white/40 hover:text-cyan-400 cursor-pointer transition-colors" />
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center p-20 bg-[radial-gradient(#1a1a1a_1px,transparent_1px)] [background-size:32px_32px]">
-             <Canvas diagram={data?.diagram} />
+          {/* Full canvas area - Now passing the whole 'data' object */}
+          <div className="absolute inset-0 top-0 bg-[radial-gradient(#1a1a1a_1px,transparent_1px)] [background-size:32px_32px]">
+              <Canvas data={data} />
           </div>
         </div>
 
@@ -172,7 +194,7 @@ export default function Home() {
           </div>
           
           <div className="p-8 border-t border-white/5 bg-black">
-            <button className="group w-full bg-cyan-500 py-4 flex items-center justify-center gap-3 hover:bg-cyan-400 transition-all overflow-hidden relative">
+            <button className="group w-full bg-cyan-500 py-4 flex items-center justify-center gap-3 hover:bg-cyan-400 transition-all overflow-hidden relative rounded-lg">
               <span className="text-[11px] font-black text-black uppercase tracking-widest relative z-10">Export Blueprint</span>
               <Share2 size={16} className="text-black relative z-10" />
               <div className="absolute inset-0 bg-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 opacity-20" />
