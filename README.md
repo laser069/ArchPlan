@@ -310,5 +310,3 @@ Service health check
 - **Next.js** for modern React development
 
 ---
-
-*Built with ❤️ for architects, developers, and system designers*
