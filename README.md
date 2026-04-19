@@ -291,7 +291,6 @@ Service health check
 - Use TypeScript for frontend code
 - Follow FastAPI best practices for backend
 - Add tests for new features
-- Update documentation
 
 ---
 
