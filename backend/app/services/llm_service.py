@@ -142,7 +142,7 @@ async def generate_architecture(
     provider: str = "groq",
     model: str = None,
     constraints: Constraints = None,
-    existing_diagram: str = None,
+    existing_diagram: dict = None,
     existing_components: List[dict] = None,
     cached_constraints: dict = None,
 ) -> GenerateResponse:
@@ -163,8 +163,8 @@ async def generate_architecture(
             [c["name"], REVERSE_TYPE_MAP.get(c["type"], "S")] 
             for c in existing_components
         ]
-        # Get edges. We use the diagram as the source of truth for current wiring.
-        edges_data = _extract_edges_from_diagram(existing_diagram)
+        # Get edges from the diagram dict's edges list
+        edges_data = existing_diagram.get("edges", []) if isinstance(existing_diagram, dict) else []
         
         prompt = get_refine_prompt(
             query=query, 
@@ -205,9 +205,11 @@ async def generate_architecture(
             continue
 
     # 4. Global Fallback if everything fails
-    return GenerateResponse(
-        components=[{"name": "App", "type": "Service"}],
-        diagram="graph TD\n  App",
-        architecture="All providers failed.",
-        scaling="N/A"
-    )
+    fallback_data = {
+        "n": [["App", "S"]],
+        "e": [],
+        "a": "All providers failed. Please try again.",
+        "s": "N/A"
+    }
+    fallback_inflated = _inflate(fallback_data)
+    return GenerateResponse(**fallback_inflated)
