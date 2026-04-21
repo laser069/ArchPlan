@@ -10,10 +10,29 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 * **🤖 Multi-Provider LLM Support**: Seamlessly switches between Google Gemini, Groq, OpenRouter, and local Ollama models for maximum reliability
 * **📊 Interactive ReactFlow Diagrams**: Real-time rendering of architecture diagrams with drag-and-drop nodes, layered visualization, and interactive components
 * **📄 PDF Document Ingestion**: Automatically processes and indexes technical documentation for enhanced design guidance
+* **✅ Type-Safe API**: Fully Pydantic v2 compliant with comprehensive validation and error handling
 
 ---
 
-## 🛠️ Technology Stack
+## � Recent Updates
+
+### Pydantic v2 Compliance & API Improvements (Latest)
+✅ **Backend Fixes:**
+- Migrated all schema models to Pydantic v2 `ConfigDict` syntax
+- Fixed type inconsistencies across request/response models
+- Added missing database fields for full API consistency
+- Improved type safety with `REVERSE_TYPE_MAP` for component mapping
+- Enhanced error handling and fallback responses
+
+✅ **API Enhancements:**
+- Consistent `existing_diagram` format (dict-based instead of string)
+- Complete field mapping in history endpoints
+- Proper Component object serialization
+- Full validation of all request/response structures
+
+---
+
+## �🛠️ Technology Stack
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
@@ -231,30 +250,36 @@ Generate architecture from requirements
 {
   "query": "Design a high-traffic e-commerce platform",
   "provider": "groq",  // optional: "gemini", "groq", "openrouter", "ollama"
-  "model": "llama-3.3-70b-versatile",  // optional: specific model name
-  "existing_diagram": {...},  // optional: JSON nodes/edges for refinement
-  "existing_components": [...]  // optional: for refinement
-}
-```
-
-#### GET `/test-diagram`
-Returns a sample architecture diagram for development testing (no LLM tokens used)
-
-#### GET `/health`
-Service health check
-
-### Response Format
-```json
-{
-  "components": [
-    {
-      "name": "API Gateway",
-      "type": "gateway"
+  "model": "llaGateway"
     }
   ],
   "nodes": [
     {
       "id": "API_Gateway",
+      "parentId": "Entry",
+      "type": "architectureNode",
+      "data": {"label": "API Gateway", "type": "Gateway"},
+      "position": {"x": 40, "y": 60},
+      "extent": "parent"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e0-API_Gateway-Core_API",
+      "source": "API_Gateway",
+      "target": "Core_API",
+      "animated": false,
+      "style": {"stroke": "#06b6d4", "strokeWidth": 2}
+    }
+  ],
+  "raw_nodes": [["API Gateway", "G"]],
+  "raw_edges": [["API Gateway", "Core API"]],
+  "architecture": "High-level architecture description...",
+  "scaling": "Horizontal scaling recommendations...",
+  "constraints": {
+    "budget_usd_month": 5000,
+    "team_size": 5,
+    "cloud_provider": "AWS"ateway",
       "type": "architectureNode",
       "data": {"label": "API Gateway", "type": "Gateway"},
       "position": {"x": 100, "y": 100}
@@ -273,7 +298,28 @@ Service health check
   "constraints": {
     "budget_usd_month": 5000,
     "team_size": 5
-  }
+  }🐛 Troubleshooting
+
+### Pydantic Validation Errors
+If you encounter pydantic validation errors:
+1. Ensure Python 3.10+ is installed
+2. Install latest dependencies: `pip install --upgrade pydantic`
+3. Check that all required fields are provided in API requests
+4. Review the detailed error messages at `http://localhost:8000/docs`
+
+### Database Issues
+- **Vector DB**: Ensure ChromaDB is properly initialized in `backend/chroma_db/`
+- **MongoDB**: Configure MongoDB connection string if using MongoDB backend
+- **Field Mapping**: All ArchHistory fields map correctly to GenerateResponse
+
+### LLM Provider Issues
+- **Ollama**: Ensure Ollama is running on localhost:11434
+- **API Keys**: Set proper environment variables for external providers
+- **Fallback**: System automatically falls back to next provider on error
+
+---
+
+## 
 }
 ```
 
