@@ -5,6 +5,7 @@ from pydantic import Field
 
 class ArchHistory(Document):
     # Training Inputs
+    user_email: str
     query: str
     full_prompt: str  # We save the exact string from get_system_prompt
     provider: str

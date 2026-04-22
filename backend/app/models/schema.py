@@ -1,9 +1,19 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
+from beanie import Document, Indexed
+from pydantic import EmailStr
 
 VALID_PROVIDERS = Literal["gemini", "ollama", "groq", "openrouter"]
 VALID_SCALE   = Literal["startup", "growth", "enterprise"]
+
+class User(Document):
+    email: Indexed(EmailStr, unique=True)
+    hashed_password: str
+    is_active: bool = True
+
+    class Settings:
+        name = "users"
 
 class Constraints(BaseModel):
     model_config = ConfigDict(extra="ignore")

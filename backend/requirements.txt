@@ -3,3 +3,7 @@ uvicorn
 python-dotenv
 pydantic
 openai
+motor
+beanie
+passlib[bcrypt]
+python-jose[cryptography]

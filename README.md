@@ -4,6 +4,7 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 
 ## ✨ Key Features
 
+* **🔐 User Authentication**: Secure user registration and login with JWT tokens
 * **🧠 Intelligent Constraint Extraction**: Automatically parses user requirements to extract technical constraints, budget limits, performance requirements, compliance needs, and architectural preferences
 * **🔄 Iterative Design Refinement**: Supports collaborative design workflows where users can iteratively refine architectures with AI-powered suggestions
 * **📚 RAG-Powered Knowledge Base**: Integrates a local vector database with PDF document ingestion for context-aware architecture recommendations
@@ -38,7 +39,7 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 |-----------|------------|---------|
 | **Frontend** | Next.js 14, TypeScript, Tailwind CSS | Modern React framework with type safety |
 | **Backend** | FastAPI, Python 3.10+, Pydantic | High-performance async API framework |
-| **Database** | ChromaDB | Vector database for document embeddings |
+| **Database** | MongoDB + ChromaDB | User data + Vector database for document embeddings |
 | **LLM Providers** | Google Gemini, Groq, OpenRouter, Ollama | Multi-provider AI model support |
 | **Embeddings** | Sentence Transformers | Text vectorization for RAG |
 | **Visualization** | ReactFlow | Interactive architecture diagram rendering |
@@ -49,6 +50,11 @@ ArchPlan is an **intelligent architecture design assistant** that generates comp
 ## 🚀 Quick Start
 
 ### Prerequisites
+- **MongoDB** installed and running locally
+- **Python 3.10+** installed
+- **Node.js 18+** installed
+- **Ollama** installed and running locally
+- **pnpm** package manager (or npm/yarn)
 - **Python 3.10+** installed
 - **Node.js 18+** installed
 - **Ollama** installed and running locally
