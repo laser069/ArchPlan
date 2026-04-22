@@ -4,8 +4,9 @@ from contextlib import asynccontextmanager
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 
-from app.routes import generate
+from app.routes import generate, auth
 from app.models.database import ArchHistory # Import the new model
+from app.models.schema import User
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,7 +15,7 @@ async def lifespan(app: FastAPI):
     client = AsyncIOMotorClient("mongodb://localhost:27017")
     await init_beanie(
         database=client.ArchPlanDB, 
-        document_models=[ArchHistory]
+        document_models=[ArchHistory, User]
     )
     print("--- MongoDB Initialized ---")
     yield
@@ -31,3 +32,4 @@ app.add_middleware(
 )
 
 app.include_router(generate.router)
+app.include_router(auth.auth_router)
