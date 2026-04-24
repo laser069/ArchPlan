@@ -195,10 +195,6 @@ DEBUG=true
 PORT=8000
 ```
 
-### Knowledge Base Setup
-1. Place PDF documents in `backend/docs/`
-2. Run ingestion: `python -m app.rag.ingest`
-3. Documents are automatically chunked and indexed
 
 ---
 
