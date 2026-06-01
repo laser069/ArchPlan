@@ -16,46 +16,41 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import {
-  Server, Database, Globe, Shield, Box, Activity,
+  Server, Database, Globe, Shield, Activity,
   Layers, Zap, Cpu, Search, MessageSquare, Monitor
 } from 'lucide-react';
 
-const NODE_COLORS: Record<string, string> = {
-  D: '#10b981', // emerald   — Database
-  X: '#3b82f6', // blue      — CDN
-  A: '#ef4444', // red       — Auth (security-critical)
-  L: '#a78bfa', // violet    — Load Balancer
-  S: '#64748b', // slate     — Service
-  C: '#f59e0b', // amber     — Cache
-  Q: '#f97316', // orange    — Queue (async)
-  E: '#06b6d4', // cyan      — Search
-  G: '#8b5cf6', // purple    — Gateway
-  M: '#14b8a6', // teal      — Monitor
-  W: '#ec4899', // pink      — Worker
-  N: '#84cc16', // lime      — Network
-  P: '#fb923c', // orange-4  — Proxy
-  DEFAULT: '#94a3b8',
+const getNodeColor = (type: string): string => {
+  const t = (type || '').toLowerCase();
+  if (/database|db|postgres|mysql|mongo|dynamo|cassandra|sqlite/.test(t)) return '#10b981';
+  if (/cache|redis|memcache/.test(t)) return '#f59e0b';
+  if (/queue|kafka|rabbit|sqs|sns|pubsub|bus/.test(t)) return '#f97316';
+  if (/auth|jwt|oauth|iam|identity|sso|keycloak/.test(t)) return '#ef4444';
+  if (/load.?balancer|lb|haproxy/.test(t)) return '#a78bfa';
+  if (/monitor|metric|prometheus|grafana|datadog|log|trace/.test(t)) return '#14b8a6';
+  if (/cdn|cloudfront|fastly|akamai/.test(t)) return '#3b82f6';
+  if (/search|elastic|solr|algolia/.test(t)) return '#06b6d4';
+  if (/gateway|api.?gw|kong|envoy/.test(t)) return '#8b5cf6';
+  if (/worker|celery|job|batch|consumer/.test(t)) return '#ec4899';
+  if (/proxy|sidecar|istio|linkerd/.test(t)) return '#fb923c';
+  if (/network|vpc|subnet|firewall/.test(t)) return '#84cc16';
+  if (/storage|s3|blob|gcs|minio|file/.test(t)) return '#22d3ee';
+  return '#64748b'; // service / nginx / default
 };
 
-const getNodeColor = (type: string): string =>
-  NODE_COLORS[type?.toUpperCase()] ?? NODE_COLORS.DEFAULT;
-
 const getIcon = (type: string) => {
-  const t = type?.toUpperCase();
-  switch (t) {
-    case 'D': return <Database size={14} />;
-    case 'X': return <Globe size={14} />;
-    case 'A': return <Shield size={14} />;
-    case 'L': return <Activity size={14} />;
-    case 'S': return <Server size={14} />;
-    case 'C': return <Zap size={14} />;
-    case 'Q': return <Layers size={14} />;
-    case 'E': return <Search size={14} />;
-    case 'G': return <Cpu size={14} />;
-    case 'M': return <Monitor size={14} />;
-    case 'W': return <MessageSquare size={14} />;
-    default: return <Box size={14} />;
-  }
+  const t = (type || '').toLowerCase();
+  if (/database|db|postgres|mysql|mongo|dynamo/.test(t)) return <Database size={14} />;
+  if (/cache|redis/.test(t)) return <Zap size={14} />;
+  if (/queue|kafka|rabbit|bus/.test(t)) return <Layers size={14} />;
+  if (/auth|jwt|oauth|iam/.test(t)) return <Shield size={14} />;
+  if (/load.?balancer|lb/.test(t)) return <Activity size={14} />;
+  if (/monitor|metric|prometheus|log/.test(t)) return <Monitor size={14} />;
+  if (/cdn|cloudfront/.test(t)) return <Globe size={14} />;
+  if (/search|elastic/.test(t)) return <Search size={14} />;
+  if (/gateway|api.?gw|kong/.test(t)) return <Cpu size={14} />;
+  if (/worker|celery|job/.test(t)) return <MessageSquare size={14} />;
+  return <Server size={14} />;
 };
 
 const CustomNode = ({ data }: any) => {

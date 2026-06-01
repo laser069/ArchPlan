@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from app.models.schema import GenerateRequest, GenerateResponse, Constraints, Component, User
 from app.models.database import ArchHistory  # Added User
 from app.auth import get_current_user              # Added Auth Dependency
-from app.services.llm_service import generate_architecture, REVERSE_TYPE_MAP, _inflate
+from app.services.llm_service import generate_architecture, _inflate
 from app.services.constraint_extractor import extract_constraints
 from app.services.prompts import get_system_prompt, get_refine_prompt
 
@@ -20,10 +20,7 @@ async def log_to_training_db(req: GenerateRequest, result: GenerateResponse, is_
     """
     try:
         if is_refine:
-            nodes_data = [
-                [c.name, REVERSE_TYPE_MAP.get(c.type, "S")] 
-                for c in result.components
-            ]
+            nodes_data = [[c.name, c.type] for c in result.components]
             prompt = get_refine_prompt(
                 query=req.query,
                 existing_nodes=json.dumps(nodes_data),
@@ -31,7 +28,7 @@ async def log_to_training_db(req: GenerateRequest, result: GenerateResponse, is_
                 constraints_data=json.dumps(result.constraints)
             )
         else:
-            prompt = get_system_prompt(req.query, json.dumps(result.constraints))
+            prompt = get_system_prompt(req.query, json.dumps(result.constraints), context="")
 
         db_entry = ArchHistory(
             user_email=user_email,  # Link to user
@@ -147,15 +144,19 @@ async def test_diagram_endpoint():
     """Remains public for quick UI testing."""
     mock_raw = {
         "n": [
-            ["User Interface", "X"], ["Load Balancer", "L"], ["Core API", "S"], 
-            ["Primary DB", "D"], ["Redis Cache", "C"]
+            ["User Interface", "cdn"], ["Load Balancer", "loadbalancer"],
+            ["Auth Service", "auth"], ["Core API", "service"],
+            ["Primary DB", "postgresql"], ["Redis Cache", "redis"],
+            ["Metrics", "monitor"]
         ],
         "e": [
-            ["User Interface", "Load Balancer"], ["Load Balancer", "Core API"],
-            ["Core API", "Primary DB"], ["Core API", "Redis Cache"]
+            ["User Interface", "Load Balancer"], ["Load Balancer", "Auth Service"],
+            ["Load Balancer", "Core API"], ["Auth Service", "Core API"],
+            ["Core API", "Primary DB"], ["Core API", "Redis Cache"],
+            ["Core API", "Metrics"], ["Primary DB", "Metrics"]
         ],
-        "a": "This is a TEST architecture.",
-        "s": "Horizontal scaling for API, Read-replicas for DB."
+        "a": "This is a TEST architecture with descriptive node types.",
+        "s": "Horizontal scaling for API, read-replicas for DB."
     }
     inflated = _inflate(mock_raw)
     return GenerateResponse(**inflated)
