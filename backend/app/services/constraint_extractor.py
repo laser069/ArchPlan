@@ -11,24 +11,8 @@ MODEL_NAME = "qwen2.5-coder:7b-instruct-q4_0"
 # ============================================================
 # CLASSIFIER SYSTEM PROMPT
 # ============================================================
-CLASSIFIER_PROMPT = """You are a constraint extraction engine. 
-Identify technical constraints from the user's text. Return ONLY a single raw JSON object. 
-
-FIELDS:
-- "budget_usd_month": integer.
-- "team_size": integer.
-- "peak_rps": integer. (Formula: daily users / 86400 * 10. Round to nearest 10).
-- "cloud_provider": "AWS", "GCP", "Azure", "DigitalOcean", or "Hetzner".
-- "region": string (e.g., "us-east-1", "ap-south-1").
-- "stack": list of strings (e.g., ["Python", "PostgreSQL"]).
-- "avoid": list of strings (e.g., ["Kubernetes"]).
-- "compliance": list of strings (e.g., ["GDPR", "HIPAA"]).
-- "scale_level": "startup", "growth", or "enterprise".
-
-RULES:
-- If a field is not mentioned, OMIT it. 
-- If no constraints found, return {}.
-- Output ONLY JSON. No explanation or markdown.
+CLASSIFIER_PROMPT = """Extract constraints from user text. Return raw JSON only. Omit missing fields. Return {} if none.
+Fields: budget_usd_month(int), team_size(int), peak_rps(int, daily_users/86400*10 round to 10), cloud_provider(AWS|GCP|Azure|DigitalOcean|Hetzner), region(str), stack([str]), avoid([str]), compliance([str]: GDPR/HIPAA/SOC2/PCI-DSS/ISO27001/CCPA only), scale_level(startup|growth|enterprise)
 """
 
 # ============================================================
