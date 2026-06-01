@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -8,63 +8,146 @@ import {
   ReactFlowProvider,
   Handle,
   Position,
+  MiniMap,
+  Controls,
+  Background,
+  BackgroundVariant,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
-import { 
-  Server, Database, Globe, Shield, Box, Activity, 
+import {
+  Server, Database, Globe, Shield, Box, Activity,
   Layers, Zap, Cpu, Search, MessageSquare, Monitor
 } from 'lucide-react';
 
-// Mapper for your Backend Types: S, G, Q, C, R, X, L, D, A, M, E, W, N, P
+const NODE_COLORS: Record<string, string> = {
+  D: '#10b981', // emerald   — Database
+  X: '#3b82f6', // blue      — CDN
+  A: '#ef4444', // red       — Auth (security-critical)
+  L: '#a78bfa', // violet    — Load Balancer
+  S: '#64748b', // slate     — Service
+  C: '#f59e0b', // amber     — Cache
+  Q: '#f97316', // orange    — Queue (async)
+  E: '#06b6d4', // cyan      — Search
+  G: '#8b5cf6', // purple    — Gateway
+  M: '#14b8a6', // teal      — Monitor
+  W: '#ec4899', // pink      — Worker
+  N: '#84cc16', // lime      — Network
+  P: '#fb923c', // orange-4  — Proxy
+  DEFAULT: '#94a3b8',
+};
+
+const getNodeColor = (type: string): string =>
+  NODE_COLORS[type?.toUpperCase()] ?? NODE_COLORS.DEFAULT;
+
 const getIcon = (type: string) => {
   const t = type?.toUpperCase();
   switch (t) {
-    case 'D': return <Database size={14} />; // Database
-    case 'X': return <Globe size={14} />;    // CDN
-    case 'A': return <Shield size={14} />;   // Auth
-    case 'L': return <Activity size={14} />; // Load Balancer
-    case 'S': return <Server size={14} />;   // Service
-    case 'C': return <Zap size={14} />;      // Cache
-    case 'Q': return <Layers size={14} />;   // Queue
-    case 'E': return <Search size={14} />;   // Search
-    case 'G': return <Cpu size={14} />;      // Gateway
-    case 'M': return <Monitor size={14} />;  // Monitor
-    case 'W': return <MessageSquare size={14} />; // Worker
+    case 'D': return <Database size={14} />;
+    case 'X': return <Globe size={14} />;
+    case 'A': return <Shield size={14} />;
+    case 'L': return <Activity size={14} />;
+    case 'S': return <Server size={14} />;
+    case 'C': return <Zap size={14} />;
+    case 'Q': return <Layers size={14} />;
+    case 'E': return <Search size={14} />;
+    case 'G': return <Cpu size={14} />;
+    case 'M': return <Monitor size={14} />;
+    case 'W': return <MessageSquare size={14} />;
     default: return <Box size={14} />;
   }
 };
 
 const CustomNode = ({ data }: any) => {
+  const color = getNodeColor(data.type);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const onEnter = () => {
+    if (!ref.current) return;
+    ref.current.style.boxShadow = `0 0 0 1px ${color}55, 0 4px 20px ${color}33`;
+    ref.current.style.borderColor = `${color}99`;
+  };
+  const onLeave = () => {
+    if (!ref.current) return;
+    ref.current.style.boxShadow = '0 2px 8px rgba(0,0,0,0.6)';
+    ref.current.style.borderColor = '#1e1e1e';
+  };
+
   return (
-    <div className="px-3 py-2 min-w-[160px] bg-white border border-slate-200 rounded shadow-sm hover:border-cyan-400 transition-colors">
-      <div className="flex items-center gap-2">
-        <div className="text-slate-400">{getIcon(data.type)}</div>
-        <div className="flex flex-col">
-          <span className="text-[7px] font-bold text-cyan-600 uppercase leading-none mb-1 tracking-tighter">
+    <div
+      ref={ref}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={{
+        background: '#0f0f0f',
+        border: '1px solid #1e1e1e',
+        borderLeft: `4px solid ${color}`,
+        borderRadius: '6px',
+        minWidth: '180px',
+        padding: '10px 12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+        transition: 'box-shadow 0.2s ease, border-color 0.2s ease',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        <div style={{ color, marginTop: '1px', flexShrink: 0 }}>
+          {getIcon(data.type)}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+          <span
+            style={{
+              backgroundColor: `${color}22`,
+              color,
+              border: `1px solid ${color}44`,
+              borderRadius: '3px',
+              fontSize: '9px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              padding: '1px 5px',
+              lineHeight: '1.4',
+              display: 'inline-block',
+              width: 'fit-content',
+            }}
+          >
             {data.type_full || data.type}
           </span>
-          <span className="text-[11px] text-slate-900 font-semibold truncate max-w-[110px]">
+          <span
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#e2e8f0',
+              lineHeight: '1.3',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              maxWidth: '140px',
+            }}
+          >
             {data.label}
           </span>
         </div>
       </div>
-      <Handle type="target" position={Position.Top} className="!bg-slate-300 !w-1 !h-1 !border-none" />
-      <Handle type="source" position={Position.Bottom} className="!bg-slate-300 !w-1 !h-1 !border-none" />
+
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: color, width: '7px', height: '7px', border: '2px solid #0f0f0f', top: '-4px' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: color, width: '7px', height: '7px', border: '2px solid #0f0f0f', bottom: '-4px' }}
+      />
     </div>
   );
 };
 
 const getLayoutedElements = (nodes: any[], edges: any[]) => {
-  // 1. Identify groups that actually have children
   const groupsWithChildren = new Set(nodes.filter(n => n.parentId).map(n => n.parentId));
-  
-  // 2. Filter out empty groups (prevents layout crashes)
   const filteredNodes = nodes.filter(node => node.type !== 'group' || groupsWithChildren.has(node.id));
 
   const g = new dagre.graphlib.Graph({ compound: true });
-  
-  // TB = Top to Bottom layout. Adjust nodesep/ranksep for spacing.
   g.setGraph({ rankdir: 'TB', ranksep: 100, nodesep: 80, marginx: 50, marginy: 50 });
   g.setDefaultEdgeLabel(() => ({}));
 
@@ -88,13 +171,10 @@ const getLayoutedElements = (nodes: any[], edges: any[]) => {
   return filteredNodes.map((node) => {
     const nodeWithPosition = g.node(node.id);
     const isGroup = node.type === 'group';
-    
-    // Calculate centered position
+
     let x = nodeWithPosition.x - (isGroup ? nodeWithPosition.width / 2 : 90);
     let y = nodeWithPosition.y - (isGroup ? nodeWithPosition.height / 2 : 30);
 
-    // If node is inside a group, Dagre returns absolute coords, 
-    // but ReactFlow needs RELATIVE coords for children.
     if (node.parentId) {
       const parentPos = g.node(node.parentId);
       x = nodeWithPosition.x - parentPos.x + (parentPos.width / 2) - 90;
@@ -110,44 +190,49 @@ const getLayoutedElements = (nodes: any[], edges: any[]) => {
     };
   });
 };
+
 function FlowCanvas({ initialNodes, initialEdges }: { initialNodes: any[], initialEdges: any[] }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
   const { fitView } = useReactFlow();
 
   useEffect(() => {
     if (initialNodes && initialNodes.length > 0) {
-      // 1. Layout nodes using Dagre
       const layoutedNodes = getLayoutedElements(initialNodes, initialEdges);
-      
-      // 2. Style edges for high visibility
+
       const styledEdges = initialEdges.map(edge => ({
         ...edge,
         type: 'smoothstep',
-        animated: true, // Makes it look "alive"
-        style: { stroke: '#06b6d4', strokeWidth: 1, opacity: 0.4 },
+        animated: true,
+        style: { stroke: '#06b6d4', strokeWidth: 1.5, opacity: 0.65 },
       }));
 
       setNodes(layoutedNodes);
       setEdges(styledEdges);
-      
-      // 3. Auto-zoom
       setTimeout(() => fitView({ padding: 0.2, duration: 600 }), 50);
     }
   }, [initialNodes, initialEdges, setNodes, setEdges, fitView]);
 
   return (
-    <div className="w-full h-full bg-transparent">
+    <div className="w-full h-full" style={{ background: '#050505' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
         nodeTypes={{ architectureNode: CustomNode }}
-        colorMode="dark" // Matches your black-themed Home.tsx
+        colorMode="dark"
         zoomOnScroll={true}
         maxZoom={2}
         minZoom={0.1}
-      />
+      >
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#1e293b" />
+        <Controls />
+        <MiniMap
+          nodeColor={(node) => getNodeColor(node.data?.type as string)}
+          style={{ background: '#0a0a0a', border: '1px solid #1e1e1e' }}
+          maskColor="rgba(0,0,0,0.7)"
+        />
+      </ReactFlow>
     </div>
   );
 }
