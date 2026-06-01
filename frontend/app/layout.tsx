@@ -25,16 +25,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`
-        ${geistSans.variable} 
-        ${geistMono.variable} 
-        h-full 
-        antialiased 
-        selection:bg-accent 
+        ${geistSans.variable}
+        ${geistMono.variable}
+        h-full
+        antialiased
+        selection:bg-accent
         selection:text-white
       `}
     >
-      <body className="h-full overflow-hidden bg-background text-foreground font-sans">
+      <body suppressHydrationWarning className="h-full overflow-hidden bg-background text-foreground font-sans">
         {children}
       </body>
     </html>
