@@ -39,7 +39,7 @@ def get_llm(provider: str, model: str, max_tokens: int = 512):
         return ChatOpenAI(
             model=model,
             openai_api_key=os.getenv("OPENROUTER_API_KEY"),
-            openai_api_base="https://openrouter.ai/api/v1",
+            base_url="https://openrouter.ai/api/v1",
             default_headers={
                 "HTTP-Referer": "https://localhost:3000",
                 "X-Title": "ArchPlan"
@@ -65,7 +65,7 @@ async def call_llm(provider: str, model: str, prompt: str, max_tokens: int = 512
         raw_msg = await (prompt_template | llm).ainvoke({"input": prompt})
         content = raw_msg.content
     except Exception as e:
-        raise RuntimeError(f"LLM connection error ({provider}): {str(e)}")
+        raise RuntimeError(f"LLM connection error ({provider}): {str(e)}") from e
 
     parsed = _parse_json_robustly(content)
     usage = _extract_usage(provider, raw_msg)

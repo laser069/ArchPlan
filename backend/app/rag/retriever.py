@@ -15,11 +15,11 @@ def get_relevant_docs(query: str, n_results: int = 2) -> str:
     query_emb = model.encode(query).tolist()
     results = collection.query(query_embeddings=[query_emb], n_results=n_results)
 
-    if results['documents'] and len(results['documents'][0]) > 0:
-        docs = [
-            results['documents'][0][i][:300].strip()
-            for i in range(len(results['documents'][0]))
-        ]
-        return "\n---\n".join(docs)
+    if not results.get('documents') or not results['documents'][0]:
+        return ""
 
-    return ""
+    docs = [
+        results['documents'][0][i].strip()
+        for i in range(len(results['documents'][0]))
+    ]
+    return "\n---\n".join(docs)

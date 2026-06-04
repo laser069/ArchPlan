@@ -4,15 +4,24 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // The backend URL should ideally be an environment variable
-    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000/generate';
+    // The backend URL must be provided via environment variable.
+    // Fail explicitly instead of silently falling back to localhost in production.
+    const BACKEND_URL = process.env.BACKEND_URL;
+    if (!BACKEND_URL) {
+      throw new Error('BACKEND_URL environment variable is not set');
+    }
+
+    // FIXED: forward incoming Authorization header to backend
+    const authHeader = req.headers.get('authorization');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    if (authHeader) headers['Authorization'] = authHeader;
 
     const response = await fetch(BACKEND_URL, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json' 
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
