@@ -15,19 +15,26 @@ export const useArchitecture = () => {
     // 1. Retrieve the token from storage (localStorage/sessionStorage)
     const token = localStorage.getItem('access_token');
 
+    // Guard against missing token: avoid sending "Authorization: Bearer null"
+    if (!token) {
+      console.error('No access token found. Please log in again.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:8000/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           // 2. Attach the Bearer Token
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           query,
           provider,
           model: model || undefined,
-          existing_diagram: isRefine ? { nodes: data?.nodes, edges: data?.edges } : null,
+          existing_diagram: (isRefine && data) ? { nodes: data.nodes, edges: data.edges } : null,
           existing_components: isRefine ? data?.components : null,
           cached_constraints: data?.constraints || null, 
         }),

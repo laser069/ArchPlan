@@ -1,6 +1,7 @@
 import json
 import re
-from typing import List
+from typing import List, Optional
+from fastapi import HTTPException
 from app.models.schema import GenerateResponse, Constraints, Component
 from app.rag.retriever import get_relevant_docs
 from app.services.prompts import get_system_prompt, get_refine_prompt
@@ -114,11 +115,11 @@ def _inflate(raw: dict) -> dict:
 async def generate_architecture(
     query: str,
     provider: str = "groq",
-    model: str = None,
-    constraints: Constraints = None,
-    existing_diagram: dict = None,
-    existing_components: List[dict] = None,
-    cached_constraints: dict = None,
+    model: Optional[str] = None,
+    constraints: Optional[Constraints] = None,
+    existing_diagram: Optional[dict] = None,
+    existing_components: Optional[List[dict]] = None,
+    cached_constraints: Optional[dict] = None,
 ) -> GenerateResponse:
 
     # 1. Normalize constraints
@@ -166,19 +167,12 @@ async def generate_architecture(
             raw, usage = await call_llm(p_curr, target_model, prompt)
             inflated = _inflate(raw)
             resp = GenerateResponse(**inflated)
-            resp.constraints = constraints_to_use.model_dump(exclude_none=True)
+            resp = resp.model_copy(update={"constraints": constraints_to_use.model_dump(exclude_none=True)})
             return resp
 
         except Exception as e:
             print(f"[LLM ERROR] {p_curr} failed: {e}")
             continue
 
-    # 4. Global fallback
-    fallback_data = {
-        "n": [["App", "service"]],
-        "e": [],
-        "a": "All providers failed. Please try again.",
-        "s": "N/A"
-    }
-    fallback_inflated = _inflate(fallback_data)
-    return GenerateResponse(**fallback_inflated)
+    # 4. Global fallback — all providers exhausted
+    raise HTTPException(status_code=503, detail="All LLM providers unavailable. Please try again later.")

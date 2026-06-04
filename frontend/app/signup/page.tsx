@@ -18,8 +18,10 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const res = await fetch(`http://localhost:8000/signup?email=${email}&password=${password}`, {
+      const res = await fetch('http://localhost:8000/signup', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
 
       if (!res.ok) {

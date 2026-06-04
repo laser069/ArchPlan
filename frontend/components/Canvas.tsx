@@ -214,6 +214,7 @@ function FlowCanvas({ initialNodes, initialEdges }: { initialNodes: any[], initi
         nodes={nodes}
         edges={edges}
         onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         nodeTypes={{ architectureNode: CustomNode }}
         colorMode="dark"
         zoomOnScroll={true}

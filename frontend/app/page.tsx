@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useArchitecture } from '@/hooks/useArchitecture';
 import Editor from '@/components/Editor';
@@ -18,9 +18,15 @@ export default function Home() {
   const [model, setModel] = useState('');
   const [isStarred, setIsStarred] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const didInit = useRef(false);
 
   // 1. Session Protection & Setup
   useEffect(() => {
+    // Guard against double-invocation (e.g. React Strict Mode / re-renders)
+    if (didInit.current) return;
+    didInit.current = true;
+
     const token = localStorage.getItem('access_token');
     if (!token) {
       router.push('/login');
@@ -60,25 +66,36 @@ export default function Home() {
   const toggleGoldStandard = async () => {
     if (!data) return;
     setIsStarred(true);
-    
+    setAuthError(null);
+
     const token = localStorage.getItem('access_token');
     try {
-      await fetch('http://localhost:8000/history/mark-gold', {
+      const res = await fetch('http://localhost:8000/history/mark-gold', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-    } catch (e) {
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
+    } catch (e: any) {
       console.error("Gold mark failed", e);
+      setIsStarred(false);
+      setAuthError(e?.message || 'Failed to mark gold standard');
     }
   };
 
   const runTest = async () => {
+    setAuthError(null);
     try {
       const res = await fetch('http://localhost:8000/test-diagram');
+      if (!res.ok) {
+        throw new Error(`Server error: ${res.status}`);
+      }
       const testData = await res.json();
-      if (setData) setData(testData); 
-    } catch (e) {
+      if (setData) setData(testData);
+    } catch (e: any) {
       console.error("Test endpoint failed.", e);
+      setAuthError(e?.message || 'Test endpoint failed');
     }
   };
 
@@ -238,7 +255,12 @@ export default function Home() {
           </div>
           
           <div className="p-6 border-t border-white/5 bg-black space-y-3">
-            <button 
+            {authError && (
+              <p className="text-[10px] font-mono text-red-500 uppercase text-center tracking-widest">
+                {authError}
+              </p>
+            )}
+            <button
               onClick={toggleGoldStandard}
               disabled={!data || isStarred}
               className={`w-full flex items-center justify-center gap-2 py-3 border rounded-lg transition-all text-[10px] font-bold uppercase tracking-widest

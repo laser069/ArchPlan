@@ -1,6 +1,7 @@
 import time
 import traceback
 import json
+import logging
 from typing import List
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 
@@ -10,8 +11,11 @@ from app.auth import get_current_user              # Added Auth Dependency
 from app.services.llm_service import generate_architecture, _inflate
 from app.services.constraint_extractor import extract_constraints
 from app.services.prompts import get_system_prompt, get_refine_prompt
+from app.core.validators import validate_constraints
 
 router = APIRouter(tags=["Generation"])
+
+logger = logging.getLogger(__name__)
 
 async def log_to_training_db(req: GenerateRequest, result: GenerateResponse, is_refine: bool, user_email: str):
     """
@@ -48,8 +52,8 @@ async def log_to_training_db(req: GenerateRequest, result: GenerateResponse, is_
         )
         await db_entry.insert()
         print(f"--- Logged to MongoDB for user: {user_email} ---")
-    except Exception as e:
-        print(f"--- DB Logging Failed: {e} ---")
+    except Exception:
+        logger.exception("log_to_training_db failed")
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_endpoint(
@@ -60,8 +64,8 @@ async def generate_endpoint(
     t0 = time.time()
     is_refine = bool(req.existing_diagram)
     
-    provider = getattr(req, "provider", "groq")
-    model = getattr(req, "model", None) 
+    provider = req.provider
+    model = req.model
     
     log_model = model if model else "DEFAULT"
     print(f"\n--- {'Refining' if is_refine else 'Generating'} for {current_user.email} with {provider.upper()} ---")
@@ -77,6 +81,10 @@ async def generate_endpoint(
             user_constraints = req.constraints.model_dump(exclude_none=True) if req.constraints else {}
             merged = {**extracted, **user_constraints}
             constraints = Constraints(**merged)
+
+        is_valid, error_msg = validate_constraints(constraints)
+        if not is_valid:
+            raise HTTPException(status_code=422, detail=error_msg)
 
         # 2. Call the Service Layer
         result = await generate_architecture(
@@ -135,8 +143,8 @@ async def get_user_history(
             
         return formatted_history
         
-    except Exception as e:
-        print(f"CRITICAL: History mapping failed: {e}")
+    except Exception:
+        logger.exception("get_user_history failed")
         return []
 
 @router.get("/test-diagram", response_model=GenerateResponse)
