@@ -204,7 +204,7 @@ function FlowCanvas({ initialNodes, initialEdges }: { initialNodes: any[], initi
 
       setNodes(layoutedNodes);
       setEdges(styledEdges);
-      setTimeout(() => fitView({ padding: 0.2, duration: 600 }), 50);
+      fitView({ padding: 0.2, duration: 600 });
     }
   }, [initialNodes, initialEdges, setNodes, setEdges, fitView]);
 

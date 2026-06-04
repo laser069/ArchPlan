@@ -98,8 +98,7 @@ async def generate_endpoint(
         )
 
         # 3. Attach constraints for frontend caching
-        if not is_refine:
-            result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
+        result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
 
         # 4. Background Tasks - Pass current_user email
         background_tasks.add_task(log_to_training_db, req, result, is_refine, current_user.email)

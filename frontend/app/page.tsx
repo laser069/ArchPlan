@@ -34,7 +34,7 @@ export default function Home() {
     }
 
     try {
-      // Decode JWT to show user email (simple base64 decode of payload)
+      // Decode JWT to show user email (UI-only, server verifies signature on API calls)
       const payload = JSON.parse(atob(token.split('.')[1]));
       setUserEmail(payload.sub);
     } catch (e) {

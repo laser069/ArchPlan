@@ -81,17 +81,3 @@ def validate_constraints(constraints: Constraints) -> tuple[bool, str]:
             return False, "Invalid region format"
     
     return True, ""
-
-
-def sanitize_query(query: str) -> str:
-    """
-    Sanitize user query by removing extra whitespace and special characters.
-    """
-    # Remove extra whitespace
-    query = " ".join(query.split())
-    
-    # Limit to MAX_QUERY_LENGTH
-    if len(query) > MAX_QUERY_LENGTH:
-        query = query[:MAX_QUERY_LENGTH]
-    
-    return query.strip()
