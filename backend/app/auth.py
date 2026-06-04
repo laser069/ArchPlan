@@ -2,11 +2,14 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+from dotenv import load_dotenv, find_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from app.models.schema import User
+
+load_dotenv(find_dotenv())
 
 # --- Configuration ---
 SECRET_KEY = os.getenv("SECRET_KEY")
