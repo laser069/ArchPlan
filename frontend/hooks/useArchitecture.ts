@@ -3,6 +3,7 @@ import { useState } from 'react';
 export const useArchitecture = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const generate = async (
     query: string,
@@ -11,6 +12,7 @@ export const useArchitecture = () => {
     isRefine: boolean
   ) => {
     setLoading(true);
+    setError(null);
 
     // 1. Retrieve the token from storage (localStorage/sessionStorage)
     const token = localStorage.getItem('access_token');
@@ -19,11 +21,13 @@ export const useArchitecture = () => {
     if (!token) {
       console.error('No access token found. Please log in again.');
       setLoading(false);
+      setError('No access token. Please log in.');
       return;
     }
 
     try {
-      const response = await fetch('/api/generate', {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api/generate';
+      const response = await fetch(backendUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -35,35 +39,34 @@ export const useArchitecture = () => {
           provider,
           model: model || undefined,
           existing_diagram: (isRefine && data) ? { nodes: data.nodes, edges: data.edges } : null,
-          existing_components: isRefine ? data?.components : null,
+          existing_components: isRefine ? (data?.components ?? null) : null,
           cached_constraints: data?.constraints || null, 
         }),
       });
 
       // 3. Handle Unauthorized (Token expired or missing)
       if (response.status === 401) {
-        console.error("Session expired. Please log in again.");
-        // Optional: window.location.href = '/login';
+        localStorage.removeItem('access_token');
+        window.location.href = '/login';
         return;
       }
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.statusText}`);
+        const errBody = await response.json().catch(() => null);
+        const detail = errBody?.detail || errBody?.error || response.statusText;
+        throw new Error(`Server error: ${detail}`);
       }
 
       const result = await response.json();
-      
-      if (isRefine && !result.constraints && data?.constraints) {
-        result.constraints = data.constraints;
-      }
 
       setData(result);
     } catch (error) {
       console.error('Generation failed', error);
+      setError(error instanceof Error ? error.message : 'Generation failed');
     } finally {
       setLoading(false);
     }
   };
 
-  return { data, setData, loading, generate };
+  return { data, setData, loading, generate, error };
 };

@@ -6,17 +6,16 @@ import { useArchitecture } from '@/hooks/useArchitecture';
 import Editor from '@/components/Editor';
 import Canvas from '@/components/Canvas';
 import { 
-  Cpu, Layers, Terminal, Box, Settings2, 
-  Activity, Maximize2, Share2, HardDrive, 
-  FlaskConical, Star, CheckCircle2, User as UserIcon, LogOut
+  Cpu, Layers, Terminal, Box, Settings2,
+  Activity, Maximize2, Share2, HardDrive,
+  FlaskConical, User as UserIcon, LogOut
 } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
-  const { data, setData, loading, generate } = useArchitecture();
+  const { data, setData, loading, generate, error } = useArchitecture();
   const [provider, setProvider] = useState('groq');
   const [model, setModel] = useState('');
-  const [isStarred, setIsStarred] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const didInit = useRef(false);
@@ -48,10 +47,6 @@ export default function Home() {
     if (savedModel) setModel(savedModel);
   }, [router]);
 
-  useEffect(() => {
-    setIsStarred(false);
-  }, [data]);
-
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     router.push('/login');
@@ -61,27 +56,6 @@ export default function Home() {
     localStorage.setItem('ap_provider', provider);
     localStorage.setItem('ap_model', model);
     generate(query, provider, model, refine);
-  };
-
-  const toggleGoldStandard = async () => {
-    if (!data) return;
-    setIsStarred(true);
-    setAuthError(null);
-
-    const token = localStorage.getItem('access_token');
-    try {
-      const res = await fetch('http://localhost:8000/history/mark-gold', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) {
-        throw new Error(`Server error: ${res.status}`);
-      }
-    } catch (e: any) {
-      console.error("Gold mark failed", e);
-      setIsStarred(false);
-      setAuthError(e?.message || 'Failed to mark gold standard');
-    }
   };
 
   const runTest = async () => {
@@ -255,23 +229,11 @@ export default function Home() {
           </div>
           
           <div className="p-6 border-t border-white/5 bg-black space-y-3">
-            {authError && (
+            {(authError || error) && (
               <p className="text-[10px] font-mono text-red-500 uppercase text-center tracking-widest">
-                {authError}
+                {authError || error}
               </p>
             )}
-            <button
-              onClick={toggleGoldStandard}
-              disabled={!data || isStarred}
-              className={`w-full flex items-center justify-center gap-2 py-3 border rounded-lg transition-all text-[10px] font-bold uppercase tracking-widest
-                ${isStarred 
-                  ? 'border-green-500/50 text-green-500 bg-green-500/5' 
-                  : 'border-white/10 text-white/40 hover:border-yellow-500 hover:text-yellow-500 bg-white/[0.02]'}`}
-            >
-              {isStarred ? <CheckCircle2 size={14} /> : <Star size={14} />}
-              {isStarred ? 'Saved for Training' : 'Mark Gold Standard'}
-            </button>
-
             <button className="w-full bg-cyan-500 py-4 flex items-center justify-center gap-3 hover:bg-cyan-400 transition-all rounded-lg text-black font-black text-[11px] uppercase tracking-widest">
               Export Architecture <Share2 size={16} />
             </button>

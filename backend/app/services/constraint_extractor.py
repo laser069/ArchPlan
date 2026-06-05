@@ -5,7 +5,8 @@ import asyncio
 from typing import Dict, Any
 
 # Configuration
-OLLAMA_URL = "http://localhost:11434/api/generate"
+import os
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") + "/api/generate"
 MODEL_NAME = "qwen2.5-coder:7b-instruct-q4_0"
 
 # ============================================================
@@ -68,7 +69,7 @@ def sanitize_extracted(data: Dict[str, Any]) -> Dict[str, Any]:
             
             # Deduplicate safely now that all elements are strings
             if key == "compliance":
-                clean[key] = list(set(v.upper() for v in flat_list if v.upper() in [c.upper() for c in VALID_COMPLIANCE]))
+                clean[key] = list(set(v.upper() for v in flat_list if v.upper() in VALID_COMPLIANCE))
             else:
                 clean[key] = list(set(flat_list))
 

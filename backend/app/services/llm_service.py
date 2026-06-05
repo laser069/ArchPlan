@@ -33,7 +33,7 @@ def _get_tier(type_str: str) -> str:
 def _inflate(raw: dict) -> dict:
     nodes = raw.get("n", [])
     edges = raw.get("e", [])
-    type_of = {n: t for n, t in nodes}
+    type_of = {n.replace(" ", "_"): t for n, t in nodes}
 
     LAYER_WIDTH = 900
     LAYER_HEIGHT = 200
@@ -90,7 +90,7 @@ def _inflate(raw: dict) -> dict:
         s_id = source.replace(" ", "_")
         t_id = target.replace(" ", "_")
 
-        target_type = (type_of.get(target) or "").lower()
+        target_type = (type_of.get(t_id) or "").lower()
         is_animated = bool(re.search(r'queue|kafka|rabbit|sqs|cache|redis|pubsub', target_type))
 
         formatted_edges.append({
@@ -119,13 +119,10 @@ async def generate_architecture(
     constraints: Optional[Constraints] = None,
     existing_diagram: Optional[dict] = None,
     existing_components: Optional[List[dict]] = None,
-    cached_constraints: Optional[dict] = None,
 ) -> GenerateResponse:
 
     # 1. Normalize constraints
     constraints_to_use = constraints or Constraints()
-    if cached_constraints:
-        constraints_to_use = Constraints(**{**cached_constraints, **constraints_to_use.model_dump(exclude_none=True)})
 
     c_str = json.dumps(constraints_to_use.model_dump(exclude_none=True))
 
@@ -164,7 +161,7 @@ async def generate_architecture(
             if not target_model:
                 continue
 
-            raw, usage = await call_llm(p_curr, target_model, prompt)
+            raw, usage = await call_llm(p_curr, target_model, prompt, max_tokens=2048)
             inflated = _inflate(raw)
             resp = GenerateResponse(**inflated)
             resp = resp.model_copy(update={"constraints": constraints_to_use.model_dump(exclude_none=True)})

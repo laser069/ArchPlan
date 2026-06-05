@@ -1,22 +1,25 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from app.models.schema import User
 from app.auth import hash_password, verify_password, create_access_token
 from datetime import timedelta
 
 auth_router = APIRouter(tags=["Authentication"])
 
+class SignupRequest(BaseModel):
+    email: str
+    password: str
+
 @auth_router.post("/signup")
-async def signup(email: str, password: str):
-    # Check if user already exists
-    existing_user = await User.find_one(User.email == email)
+async def signup(req: SignupRequest):
+    existing_user = await User.find_one(User.email == req.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    # Create new user
+
     new_user = User(
-        email=email,
-        hashed_password=hash_password(password)
+        email=req.email,
+        hashed_password=hash_password(req.password)
     )
     await new_user.insert()
     return {"message": "User created successfully"}
