@@ -35,19 +35,34 @@ def _inflate(raw: dict) -> dict:
     edges = raw.get("e", [])
     type_of = {n.replace(" ", "_"): t for n, t in nodes}
 
-    LAYER_WIDTH = 900
-    LAYER_HEIGHT = 200
-    LAYER_GAP = 50
+    LAYER_WIDTH = 960
     NODE_X_STEP = 220
+    NODE_MIN_PADDING = 40
+    TIER_BASE_HEIGHT = 120
+    TIER_HEIGHT_PER_ROW = 100
+    TIER_GAP = 40
+    NODES_PER_ROW = 4
 
     tiers = ["Entry", "Logic", "Data", "Observability"]
+
+    # Pass 1: count nodes per tier to size each layer
+    tier_counts: dict = {t: 0 for t in tiers}
+    for _, type_str in nodes:
+        tier_counts[_get_tier(type_str)] += 1
+
+    def _tier_height(count: int) -> int:
+        rows = max(1, (count + NODES_PER_ROW - 1) // NODES_PER_ROW)
+        return TIER_BASE_HEIGHT + (rows - 1) * TIER_HEIGHT_PER_ROW
 
     formatted_nodes = []
     formatted_edges = []
 
-    # 1. Create tier group nodes
+    # Pass 2: build tier group nodes with dynamic heights
     current_y = 0
+    tier_y: dict = {}
     for tier_name in tiers:
+        h = _tier_height(tier_counts[tier_name])
+        tier_y[tier_name] = current_y
         formatted_nodes.append({
             "id": tier_name,
             "type": "group",
@@ -55,43 +70,47 @@ def _inflate(raw: dict) -> dict:
             "position": {"x": 0, "y": current_y},
             "style": {
                 "width": LAYER_WIDTH,
-                "height": LAYER_HEIGHT,
+                "height": h,
                 "backgroundColor": "rgba(6, 182, 212, 0.02)",
                 "border": "1px solid rgba(6, 182, 212, 0.1)",
                 "borderRadius": "8px"
             }
         })
-        current_y += (LAYER_HEIGHT + LAYER_GAP)
+        current_y += h + TIER_GAP
 
-    # 2. Map components to nodes
-    tier_counts = {t: 0 for t in tiers}
-
+    # Pass 3: place component nodes — centered within their tier
+    tier_placed: dict = {t: 0 for t in tiers}
     for node_name, type_str in nodes:
         node_id = node_name.replace(" ", "_")
-        parent_tier = _get_tier(type_str)
+        tier = _get_tier(type_str)
+        count = tier_counts[tier]
+        idx = tier_placed[tier]
+        tier_placed[tier] += 1
 
-        x_pos = 40 + (tier_counts[parent_tier] * NODE_X_STEP)
-        tier_counts[parent_tier] += 1
+        row = idx // NODES_PER_ROW
+        col = idx % NODES_PER_ROW
+        nodes_in_this_row = min(NODES_PER_ROW, count - row * NODES_PER_ROW)
+        total_row_width = nodes_in_this_row * NODE_X_STEP - (NODE_X_STEP - 160)
+        start_x = max(NODE_MIN_PADDING, (LAYER_WIDTH - total_row_width) // 2)
+
+        x_pos = start_x + col * NODE_X_STEP
+        y_pos = 50 + row * TIER_HEIGHT_PER_ROW
 
         formatted_nodes.append({
             "id": node_id,
-            "parentId": parent_tier,
+            "parentId": tier,
             "type": "architectureNode",
-            "data": {
-                "label": node_name,
-                "type": type_str,
-            },
-            "position": {"x": x_pos, "y": 60},
+            "data": {"label": node_name, "type": type_str},
+            "position": {"x": x_pos, "y": y_pos},
             "extent": "parent"
         })
 
-    # 3. Map edges
+    # Pass 4: edges
     for i, (source, target) in enumerate(edges):
         s_id = source.replace(" ", "_")
         t_id = target.replace(" ", "_")
-
         target_type = (type_of.get(t_id) or "").lower()
-        is_animated = bool(re.search(r'queue|kafka|rabbit|sqs|cache|redis|pubsub', target_type))
+        is_animated = bool(re.search(r'queue|kafka|rabbit|sqs|cache|redis|pubsub|temporal|celery', target_type))
 
         formatted_edges.append({
             "id": f"e{i}-{s_id}-{t_id}",
@@ -161,7 +180,7 @@ async def generate_architecture(
             if not target_model:
                 continue
 
-            raw, usage = await call_llm(p_curr, target_model, prompt, max_tokens=2048)
+            raw, usage = await call_llm(p_curr, target_model, prompt, max_tokens=4096)
             inflated = _inflate(raw)
             resp = GenerateResponse(**inflated)
             resp = resp.model_copy(update={"constraints": constraints_to_use.model_dump(exclude_none=True)})

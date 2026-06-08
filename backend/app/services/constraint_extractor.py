@@ -83,11 +83,43 @@ def sanitize_extracted(data: Dict[str, Any]) -> Dict[str, Any]:
 # MAIN LOGIC
 # ============================================================
 
+def _keyword_fallback(query: str) -> Dict[str, Any]:
+    q = query.lower()
+    result: Dict[str, Any] = {}
+
+    if any(w in q for w in ["million users", "millions of", "high traffic", "10k rps", "100k rps", "large scale", "enterprise", "global"]):
+        result["scale_level"] = "enterprise"
+    elif any(w in q for w in ["startup", "mvp", "minimum viable", "small team", "prototype", "side project"]):
+        result["scale_level"] = "startup"
+    elif any(w in q for w in ["growing", "scale up", "thousands of users", "medium"]):
+        result["scale_level"] = "growth"
+
+    if "aws" in q:
+        result["cloud_provider"] = "AWS"
+    elif "gcp" in q or "google cloud" in q:
+        result["cloud_provider"] = "GCP"
+    elif "azure" in q:
+        result["cloud_provider"] = "Azure"
+    elif "digitalocean" in q or "digital ocean" in q:
+        result["cloud_provider"] = "DigitalOcean"
+
+    compliance = []
+    for tag, keywords in [
+        ("HIPAA", ["hipaa", "healthcare", "medical", "patient data"]),
+        ("GDPR", ["gdpr", "european", "eu users", "eu compliance"]),
+        ("PCI-DSS", ["pci", "payment", "credit card", "stripe", "checkout"]),
+        ("SOC2", ["soc2", "soc 2"]),
+    ]:
+        if any(k in q for k in keywords):
+            compliance.append(tag)
+    if compliance:
+        result["compliance"] = compliance
+
+    return result
+
+
 async def extract_constraints(raw_query: str) -> Dict[str, Any]:
-    """
-    Calls Ollama to extract constraints. 
-    Returns {} on failure to ensure the main flow is never blocked.
-    """
+    """Calls Ollama to extract constraints. Falls back to keyword extraction on failure."""
     full_prompt = CLASSIFIER_PROMPT + "\nInput: " + raw_query + "\nOutput:"
 
     try:
@@ -109,10 +141,17 @@ async def extract_constraints(raw_query: str) -> Dict[str, Any]:
 
         json_str = _extract_json_strictly(raw_text)
         data = json.loads(json_str)
-        
-        return sanitize_extracted(data)
+        extracted = sanitize_extracted(data)
+
+        # Merge keyword fallback for any fields Ollama left empty
+        if not extracted:
+            return _keyword_fallback(raw_query)
+        fallback = _keyword_fallback(raw_query)
+        for k, v in fallback.items():
+            if k not in extracted:
+                extracted[k] = v
+        return extracted
 
     except Exception as e:
-        # Log the error but return empty dict to keep the user moving
-        print(f"[Extractor Error] {str(e)}")
-        return {}
+        print(f"[Extractor Error] {str(e)} — using keyword fallback")
+        return _keyword_fallback(raw_query)
