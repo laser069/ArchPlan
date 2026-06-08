@@ -4,7 +4,7 @@ Response caching utilities for performance optimization.
 import hashlib
 import json
 from typing import Optional, Any, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # In-memory cache store
 _cache: Dict[str, tuple[Any, datetime]] = {}
@@ -12,7 +12,6 @@ _cache: Dict[str, tuple[Any, datetime]] = {}
 # Cache TTL in seconds
 DEFAULT_TTL_SECONDS = 3600  # 1 hour
 CONSTRAINT_CACHE_TTL = 1800  # 30 minutes
-ARCHITECTURE_CACHE_TTL = 3600  # 1 hour
 
 
 def _generate_cache_key(data: Dict[str, Any]) -> str:
@@ -37,7 +36,7 @@ def cache_get(key: str) -> Optional[Any]:
     
     value, expiry = _cache[key]
     
-    if datetime.now() > expiry:
+    if datetime.now(timezone.utc) > expiry:
         # Cache expired, remove it
         del _cache[key]
         return None
@@ -54,7 +53,7 @@ def cache_set(key: str, value: Any, ttl_seconds: int = DEFAULT_TTL_SECONDS) -> N
         value: Value to cache
         ttl_seconds: Time to live in seconds
     """
-    expiry = datetime.now() + timedelta(seconds=ttl_seconds)
+    expiry = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
     _cache[key] = (value, expiry)
 
 
@@ -88,36 +87,6 @@ def get_cached_constraints(query: str) -> Optional[Dict[str, Any]]:
     return cache_get(cache_key)
 
 
-def cache_architecture(request_data: Dict[str, Any], response: Dict[str, Any]) -> str:
-    """
-    Cache generated architecture.
-    
-    Args:
-        request_data: Request that generated the architecture
-        response: Generated architecture response
-        
-    Returns:
-        Cache key
-    """
-    cache_key = f"architecture:{_generate_cache_key(request_data)}"
-    cache_set(cache_key, response, ARCHITECTURE_CACHE_TTL)
-    return cache_key
-
-
-def get_cached_architecture(request_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Retrieve cached architecture for a request.
-    
-    Args:
-        request_data: Request to look up
-        
-    Returns:
-        Cached architecture or None
-    """
-    cache_key = f"architecture:{_generate_cache_key(request_data)}"
-    return cache_get(cache_key)
-
-
 def cache_clear() -> None:
     """Clear all cache entries."""
     global _cache
@@ -134,7 +103,7 @@ def cache_cleanup() -> int:
     expired_keys = []
     
     for key, (value, expiry) in _cache.items():
-        if datetime.now() > expiry:
+        if datetime.now(timezone.utc) > expiry:
             expired_keys.append(key)
     
     for key in expired_keys:

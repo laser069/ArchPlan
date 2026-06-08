@@ -20,7 +20,7 @@ class Constraints(BaseModel):
     budget_usd_month: Optional[int]  = None
     team_size:         Optional[int]  = None
     peak_rps:          Optional[int]  = None
-    cloud_provider:   str             = "AWS"
+    cloud_provider:   Literal["AWS", "GCP", "Azure", "DigitalOcean", "Hetzner"] = "AWS"
     region:           Optional[str]  = None
     stack:      List[str] = Field(default_factory=list)
     avoid:      List[str] = Field(default_factory=list)

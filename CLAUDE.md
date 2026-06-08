@@ -122,3 +122,19 @@ chore: bump pydantic to 2.7
 - Subject line ≤ 72 characters total
 - No vague messages (`update stuff`, `fix bug`, `changes`)
 - One logical change per commit — do not bundle unrelated fixes
+
+## 🗂️ Obsidian Vault Sync
+
+Vault raw dumps path: `$OBSIDIAN_VAULT_RAW_DUMPS/<YYYY-MM-DD>/ArchPlan_raw.md`
+
+When asked to log progress, write, or wrap session:
+1. Generate entry in this format:
+   ```
+   HH:MM —
+   1. What changed
+   2. Why it matters
+   3. Any risks or side effects
+   4. Recommended next step
+   ```
+2. Append to today's raw dump file (`$OBSIDIAN_VAULT_RAW_DUMPS/<YYYY-MM-DD>/ArchPlan_raw.md`).
+3. Do not create new files — append only.

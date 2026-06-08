@@ -6,7 +6,7 @@ from app.models.schema import GenerateRequest, Constraints
 
 # Validation constants
 MIN_QUERY_LENGTH = 5
-MAX_QUERY_LENGTH = 2000
+MAX_QUERY_LENGTH = 10000
 MAX_COMPONENTS = 50
 MAX_EDGES = 200
 MIN_BUDGET = 0
@@ -42,8 +42,8 @@ def validate_generate_request(req: GenerateRequest) -> tuple[bool, str]:
             return False, f"Too many components. Maximum is {MAX_COMPONENTS}"
         
         for comp in req.existing_components:
-            if not isinstance(comp, dict) or "name" not in comp or "type" not in comp:
-                return False, "Invalid component format. Each must have 'name' and 'type'"
+            if not isinstance(comp, dict) or not comp.get("name") or not comp.get("type"):
+                return False, "Invalid component format. Each must have non-empty 'name' and 'type'"
     
     # Validate existing_diagram if provided (refinement mode)
     if req.existing_diagram:
@@ -81,17 +81,3 @@ def validate_constraints(constraints: Constraints) -> tuple[bool, str]:
             return False, "Invalid region format"
     
     return True, ""
-
-
-def sanitize_query(query: str) -> str:
-    """
-    Sanitize user query by removing extra whitespace and special characters.
-    """
-    # Remove extra whitespace
-    query = " ".join(query.split())
-    
-    # Limit to MAX_QUERY_LENGTH
-    if len(query) > MAX_QUERY_LENGTH:
-        query = query[:MAX_QUERY_LENGTH]
-    
-    return query.strip()

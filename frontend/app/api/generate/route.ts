@@ -26,11 +26,8 @@ export async function POST(req: Request) {
     });
 
     if (!response.ok) {
-      // Pass through the specific error status from the backend if available
-      return NextResponse.json(
-        { error: `Backend returned ${response.status}` }, 
-        { status: response.status }
-      );
+      const errBody = await response.json().catch(() => ({ detail: response.statusText }));
+      return NextResponse.json(errBody, { status: response.status });
     }
 
     const data = await response.json();

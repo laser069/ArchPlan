@@ -1,5 +1,5 @@
 from beanie import Document, Indexed
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from pydantic import Field
 
@@ -25,7 +25,7 @@ class ArchHistory(Document):
     is_gold_standard: bool = False 
     user_rating: Optional[int] = None # 1-5
     
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:
         name = "generation_history"

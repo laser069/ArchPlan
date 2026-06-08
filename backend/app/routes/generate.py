@@ -11,7 +11,8 @@ from app.auth import get_current_user              # Added Auth Dependency
 from app.services.llm_service import generate_architecture, _inflate
 from app.services.constraint_extractor import extract_constraints
 from app.services.prompts import get_system_prompt, get_refine_prompt
-from app.core.validators import validate_constraints
+from app.core.validators import validate_constraints, validate_generate_request
+from app.core.cache import get_cached_constraints, cache_constraint_extraction
 
 router = APIRouter(tags=["Generation"])
 
@@ -32,7 +33,8 @@ async def log_to_training_db(req: GenerateRequest, result: GenerateResponse, is_
                 constraints_data=json.dumps(result.constraints)
             )
         else:
-            prompt = get_system_prompt(req.query, json.dumps(result.constraints), context="")
+            # RAG context is intentionally excluded here; stored prompt is incomplete.
+            prompt = get_system_prompt(req.query, json.dumps(result.constraints), context="[rag_context_not_stored]")
 
         db_entry = ArchHistory(
             user_email=user_email,  # Link to user
@@ -62,7 +64,10 @@ async def generate_endpoint(
     current_user: User = Depends(get_current_user)  # Protected Route
 ):
     t0 = time.time()
-    is_refine = bool(req.existing_diagram)
+    is_valid, msg = validate_generate_request(req)
+    if not is_valid:
+        raise HTTPException(status_code=422, detail=msg)
+    is_refine = bool(req.existing_diagram and req.existing_components)
     
     provider = req.provider
     model = req.model
@@ -73,11 +78,16 @@ async def generate_endpoint(
     try:
         # 1. Handle Constraint Logic
         if is_refine:
-            constraints_data = (req.cached_constraints or 
-                                (req.constraints.model_dump(exclude_none=True) if req.constraints else {}))
-            constraints = Constraints(**constraints_data)
+            cached_data = req.cached_constraints or {}
+            user_data = req.constraints.model_dump(exclude_none=True) if req.constraints else {}
+            constraints = Constraints(**{**cached_data, **user_data})
         else:
-            extracted = await extract_constraints(req.query)
+            cached = get_cached_constraints(req.query)
+            if cached:
+                extracted = cached
+            else:
+                extracted = await extract_constraints(req.query)
+                cache_constraint_extraction(req.query, extracted)
             user_constraints = req.constraints.model_dump(exclude_none=True) if req.constraints else {}
             merged = {**extracted, **user_constraints}
             constraints = Constraints(**merged)
@@ -94,12 +104,10 @@ async def generate_endpoint(
             constraints=constraints,
             existing_diagram=req.existing_diagram,
             existing_components=req.existing_components,
-            cached_constraints=req.cached_constraints,
         )
 
         # 3. Attach constraints for frontend caching
-        if not is_refine:
-            result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
+        result = result.model_copy(update={"constraints": constraints.model_dump(exclude_none=True)})
 
         # 4. Background Tasks - Pass current_user email
         background_tasks.add_task(log_to_training_db, req, result, is_refine, current_user.email)
@@ -107,6 +115,8 @@ async def generate_endpoint(
         print(f"--- Completed in {time.time()-t0:.2f}s ---")
         return result
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"!!! Error in generate_endpoint: {e}")
         traceback.print_exc()
@@ -121,7 +131,7 @@ async def get_user_history(
         # Pull documents specifically for the logged-in user
         history_docs = await ArchHistory.find(
             ArchHistory.user_email == current_user.email
-        ).sort("-id").limit(limit).to_list()
+        ).sort("-created_at").limit(limit).to_list()
         
         formatted_history = []
         for doc in history_docs:
@@ -145,7 +155,7 @@ async def get_user_history(
         
     except Exception:
         logger.exception("get_user_history failed")
-        return []
+        raise HTTPException(status_code=500, detail="Failed to retrieve history")
 
 @router.get("/test-diagram", response_model=GenerateResponse)
 async def test_diagram_endpoint():

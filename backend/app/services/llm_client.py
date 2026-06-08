@@ -17,7 +17,7 @@ OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 def get_llm(provider: str, model: str, max_tokens: int = 512):
     """Factory to initialize the LLM based on provider."""
-    common_params = {"temperature": 0.1}
+    common_params = {"temperature": 0.4}
 
     if provider == "gemini":
         return ChatGoogleGenerativeAI(
